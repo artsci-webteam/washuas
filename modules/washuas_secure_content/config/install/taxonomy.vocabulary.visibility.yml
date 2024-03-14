@@ -1,0 +1,7 @@
+langcode: en
+status: true
+dependencies: {  }
+name: Visibility
+vid: visibility
+description: 'Used to define whether a page should be locked behind a secure login.'
+weight: 0

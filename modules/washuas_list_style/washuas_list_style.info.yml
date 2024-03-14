@@ -1,0 +1,9 @@
+name: 'WashU A&S List Style'
+type: module
+description: 'Adds editors to select list style types in CKEditor'
+core_version_requirement: ^10
+weight: 100
+package: WashU
+dependencies:
+  - drupal:ckeditor5
+  - drupal:editor

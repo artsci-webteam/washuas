@@ -1,0 +1,25 @@
+<?php
+
+/**
+ * @file
+ * washuas.module
+ * Drupal hooks and other helper functions for those hooks can go here
+ */
+
+use Drupal\Core\Entity\ContentEntityInterface;
+use Drupal\field\Entity\FieldStorageConfig;
+
+/**
+ * Implements hook_allowed_values_function().
+ */
+function washuas_rule_year_allowed_values(FieldStorageConfig $definition, ContentEntityInterface $entity = NULL, $cacheable) {
+  // Available drop year values.
+  $thisyear = date('Y');
+  $i = $thisyear;
+  $options = [];
+  while ($i >= 2000) {
+    $options[$i] = $i;
+    $i--;
+  }
+  return $options;
+}

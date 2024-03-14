@@ -1,0 +1,28 @@
+system.admin_config_washuas_wucrsl:
+  path: '/admin/config/washuas/wucrsl'
+  defaults:
+    _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
+    _title: 'WashU A&S WUCrsl'
+  requirements:
+    _permission: 'administer basic site settings'
+washuas_wucrsl.settings:
+  path: '/admin/config/washuas/wucrsl/settings'
+  defaults:
+    _form: '\Drupal\washuas_wucrsl\Form\WashuasWucrslSettingsForm'
+    _title: 'Courses Soap Settings'
+  requirements:
+    _permission: 'administer site configuration'
+washuas_wucrsl.departments:
+  path: '/admin/config/washuas/wucrsl/departments'
+  defaults:
+    _form: '\Drupal\washuas_wucrsl\Form\WashuasWucrslDepartmentsForm'
+    _title: 'Departments to import courses from.'
+  requirements:
+    _permission: 'administer site configuration'
+washuas_wucrsl.manual:
+  path: '/admin/config/washuas/wucrsl/manual_import'
+  defaults:
+    _form: '\Drupal\washuas_wucrsl\Form\WashuasWucrslImportForm'
+    _title: 'Manual Courses Import'
+  requirements:
+    _permission: 'administer site configuration'

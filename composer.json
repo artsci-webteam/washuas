@@ -1,0 +1,14 @@
+{
+    "name": "washuas/washuas",
+    "description": "Helper WashU A&S Drupal functions and submodules",
+    "type": "drupal-custom-module",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "WashU A&S",
+            "homepage": "https://artsci.wustl.edu/",
+            "role": "Maintainer"
+        }
+    ],
+    "homepage": "https://us-east-1.console.aws.amazon.com/codesuite/codecommit/repositories/washuas/browse?region=us-east-1"
+}

@@ -1,0 +1,10 @@
+services:
+  washuas_wucrsl.courses:
+    class: Drupal\washuas_wucrsl\Services\Courses
+    arguments: []
+  washuas_wucrsl.soap:
+    class: Drupal\washuas_wucrsl\Services\Soap
+    arguments: ['@logger.factory', '@messenger']
+  washuas_wucrsl.entitytools:
+    class: Drupal\washuas\Services\EntityTools
+    arguments: ['@entity_type.manager', '@logger.factory', '@messenger']

@@ -1,0 +1,8 @@
+name: WashU A&S WUCrsL
+type: module
+description: 'Module for retrieving course information from the WUCrsL web service '
+package: WashU
+core_version_requirement: ^9.4 || ^10
+dependencies:
+  - washuas
+  - drupal:node

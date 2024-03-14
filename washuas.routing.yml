@@ -1,0 +1,7 @@
+system.admin_config_washuas:
+  path: '/admin/config/washuas'
+  defaults:
+    _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
+    _title: 'WashU A&S Module'
+  requirements:
+    _permission: 'administer basic site settings'

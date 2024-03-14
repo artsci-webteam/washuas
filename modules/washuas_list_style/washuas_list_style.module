@@ -1,0 +1,36 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks for washuas_list_style module.
+ */
+
+use Drupal\ckeditor5\Plugin\CKEditor5PluginDefinition;
+use Drupal\washuas_list_style\Plugin\CKEditor5Plugin\ListStyle;
+
+
+/**
+ * Implements hook_ckeditor5_plugin_info_alter().
+ */
+function washuas_list_style_ckeditor5_plugin_info_alter(array &$plugin_definitions) {
+  if (!isset($plugin_definitions['ckeditor5_list'])) {
+    return;
+  }
+
+
+  $list_plugin = $plugin_definitions['ckeditor5_list'];
+  $plugin_array = $list_plugin->toArray();
+  $plugin_array['drupal']['library'] = 'washuas_list_style/list_style';
+  $plugin_array['drupal']['elements'] = [
+    '<ul class>',
+    '<ol class>',
+    '<ol reversed start class>',
+    '<li>',
+  ];
+
+  unset($plugin_definitions['ckeditor5_list']);
+  $swapped_plugin = new CKEditor5PluginDefinition($plugin_array);
+  $swapped_plugin->setClass(ListStyle::class);
+  $plugin_definitions['ckeditor5_list'] = $swapped_plugin;
+}
+

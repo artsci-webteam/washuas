@@ -1,0 +1,9 @@
+name: 'WashU A&S iFrame'
+type: module
+description: 'Adds WashU tweaked CKEditor iframe functionality'
+core_version_requirement: ^10
+weight: 100
+package: WashU
+dependencies:
+  - drupal:ckeditor5
+  - drupal:editor

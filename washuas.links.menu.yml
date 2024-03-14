@@ -1,0 +1,5 @@
+system.admin_config_washuas:
+  title: 'WashU A&S Module'
+  parent: system.admin_config
+  route_name: system.admin_config_washuas
+  weight: -100

@@ -1,0 +1,4 @@
+services:
+  washuas.entitytools:
+    class: Drupal\washuas\Services\EntityTools
+    arguments: ['@entity_type.manager', '@logger.factory', '@messenger']

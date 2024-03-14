@@ -1,0 +1,7 @@
+washuassecurecontent.settings:
+  path: '/admin/config/washuas/secrue-content/settings'
+  defaults:
+    _form: '\Drupal\washuas_secure_content\Form\WashuasSecureContentSettingsForm'
+    _title: 'WashU A&S Secure Content Settings'
+  requirements:
+    _permission: 'administer site configuration'

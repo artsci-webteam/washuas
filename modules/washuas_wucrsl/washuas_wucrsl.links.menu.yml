@@ -1,0 +1,20 @@
+system.admin_config_washuas_wucrsl:
+  title: 'WashU A&S WUCrsl'
+  parent: system.admin_config_washuas
+  route_name: system.admin_config_washuas_wucrsl
+  weight: -100
+washuas_wucrsl.settings:
+  title: SOAP Settings
+  parent: system.admin_config_washuas_wucrsl
+  route_name: washuas_wucrsl.settings
+  weight: 9
+washuas_wucrsl.manual:
+  title: Manual Import
+  parent: system.admin_config_washuas_wucrsl
+  route_name: washuas_wucrsl.manual
+  weight: 10
+washuas_wucrsl.departments:
+  title: Departments
+  parent: system.admin_config_washuas_wucrsl
+  route_name: washuas_wucrsl.departments
+  weight: 10
