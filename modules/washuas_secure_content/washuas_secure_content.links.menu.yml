@@ -1,5 +1,0 @@
-washuas_secure_content.settings:
-  title: WashU A&S Secure Content Settings
-  parent: system.admin_config_washuas
-  route_name: washuassecurecontent.settings
-  weight: 10
