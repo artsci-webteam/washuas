@@ -1,6 +1,0 @@
-services:
-  washuas_secure_content.exception403:
-    class: Drupal\washuas_secure_content\EventSubscriber\RedirectOn403Subscriber
-    tags:
-      - { name: event_subscriber }
-    arguments: ['@current_user', '@messenger', '@config.factory', '@permissions_by_term.access_check']

@@ -1,9 +1,0 @@
-name: WashU A&S Secure Content
-type: module
-description: 'Allows you to protect pages based on Visibility Vocabulary'
-package: WashU
-core_version_requirement: ^9.4 || ^10
-dependencies:
-  - washuas
-  - permissions_by_term
-  - drupal:node
