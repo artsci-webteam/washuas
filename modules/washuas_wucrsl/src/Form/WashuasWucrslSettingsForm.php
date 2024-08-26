@@ -191,7 +191,7 @@ class WashuasWucrslSettingsForm extends ConfigFormBase {
       '#type' => 'textfield',
       '#title' => t('Client Password'),
       '#description' => t('Security token used to establish authenticity with the remote server.'),
-      '#default_value' => $config->get('wucrsl_prod_soap_client_pw') ?? 'password',
+      '#default_value' => $_ENV['COURSES_PW'] ?? 'password',
       '#size' => 60,
       '#maxlength' => 256,
       '#required' => FALSE,
