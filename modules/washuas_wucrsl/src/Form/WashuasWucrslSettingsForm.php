@@ -11,7 +11,7 @@ use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\washuas\Services\EntityTools;
 use Drupal\washuas_wucrsl\Services\Soap;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-
+use Symfony\Component\Dotenv\Dotenv;
 
 /**
  * Configure settings for this WashU A&S WUCrsl module.
@@ -153,7 +153,7 @@ class WashuasWucrslSettingsForm extends ConfigFormBase {
       '#type' => 'textfield',
       '#title' => t('Client Password'),
       '#description' => t('Security token used to establish authenticity with the remote server.'),
-      '#default_value' => $config->get('wucrsl_dev_soap_client_pw') ?? 'password',
+      '#default_value' => $_ENV['COURSES_PW'] ?? 'password',
       '#size' => 60,
       '#maxlength' => 256,
       '#required' => FALSE,
@@ -191,7 +191,7 @@ class WashuasWucrslSettingsForm extends ConfigFormBase {
       '#type' => 'textfield',
       '#title' => t('Client Password'),
       '#description' => t('Security token used to establish authenticity with the remote server.'),
-      '#default_value' => $config->get('wucrsl_prod_soap_client_pw') ?? 'password',
+      '#default_value' => $_ENV['COURSES_PW'] ?? 'password',
       '#size' => 60,
       '#maxlength' => 256,
       '#required' => FALSE,
