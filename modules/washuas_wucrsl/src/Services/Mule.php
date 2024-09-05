@@ -135,6 +135,9 @@ class Mule {
             'Authorization' => 'Bearer ' . $token,
             //'X-Correlation-ID' => ,
           ],
+          'query' => [
+            'Count' => '999',
+          ],
         ]);
 
 

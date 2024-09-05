@@ -12,10 +12,10 @@ washuas_wucrsl.settings:
     _title: 'Courses API Settings'
   requirements:
     _permission: 'administer site configuration'
-washuas_wucrsl.departments:
-  path: '/admin/config/washuas/wucrsl/departments'
+washuas_wucrsl.units:
+  path: '/admin/config/washuas/wucrsl/academic_units'
   defaults:
-    _form: '\Drupal\washuas_wucrsl\Form\WashuasWucrslDepartmentsForm'
+    _form: '\Drupal\washuas_wucrsl\Form\WashuasWucrslAcademicUnitsForm'
     _title: 'Departments to import courses from.'
   requirements:
     _permission: 'administer site configuration'

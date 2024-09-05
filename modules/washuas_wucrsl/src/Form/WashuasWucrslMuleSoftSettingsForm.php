@@ -16,7 +16,7 @@ use Symfony\Component\Dotenv\Dotenv;
 /**
  * Configure settings for this WashU A&S WUCrsl module.
  */
-class WashuasMuleSoftSettingsForm extends ConfigFormBase {
+class WashuasWucrslMuleSoftSettingsForm extends ConfigFormBase {
   /**
    * Config settings.
    *

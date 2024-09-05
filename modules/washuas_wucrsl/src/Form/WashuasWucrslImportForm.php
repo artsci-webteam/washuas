@@ -40,7 +40,7 @@ class WashuasWucrslImportForm extends FormBase {
 
     if (empty($departments)) {
       $aText = 'In order to import courses you must first set the departments. Click here to set the departments';
-      $aURL = new Url('washuas_wucrsl.departments');
+      $aURL = new Url('washuas_wucrsl.units');
       $form['wucursl_departments_link']['#markup'] = Link::fromTextAndUrl($aText,$aURL)->toString();
       $form['actions']['submit']['#attributes']['disabled']  = 'disabled';
 

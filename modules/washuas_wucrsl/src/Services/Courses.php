@@ -37,7 +37,7 @@ class Courses {
     //get the soap departments
     $soapDepartments = $this->executeSoapRequest('GetDepartments', $this->currentSemester["sort"])->Departments;
     //get the active configuration
-    $configDepartments = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_department');
+    $configDepartments = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
     foreach ( $soapDepartments as $department){
       $deptName = $department->DepartmentName.'('.$department->DepartmentCode.')';
       $departments['options'][$department->DepartmentCode] = $deptName;
@@ -62,18 +62,19 @@ class Courses {
     //initialize our return array
     $units = [];
     //get the soap /
-    $apiUnits = $this->executeMuleRequest('organization','academicunits');
+    $apiUnits = $this->executeMuleRequest('organization','academicunits')['organizations'];
     //get the active configuration
-    $configDepartments = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_department');
+    $configUnits = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
     foreach ( $apiUnits as $unit){
-      $test = true;
-      //$deptName = $department->DepartmentName.'('.$department->DepartmentCode.')';
-      //$units['options'][$department->DepartmentCode] = $deptName;
-      //if this department code has a non-zero value in the configDepartments then add it's data to our loop array
-      //if ( !empty($configDepartments[$department->DepartmentCode])){
-      //  $units['loop'][$department->DepartmentCode] = $deptName;
-      //  $units['config'][$department->DepartmentCode] = $deptName;
-      //}
+      if ( isset($unit['Hierarchy']['SuperiorOrganization_id']) && ( $unit['Hierarchy']['SuperiorOrganization_id'] == 'AU100069' ) ) {
+        $unitName = $unit['OrganizationName'].'('.$unit['OrganizationCode'].')';
+        $units['options'][$unit['OrganizationCode']] = $unitName;
+        //if this department code has a non-zero value in the configDepartments then add it's data to our loop array
+        if ( !empty($configUnits[$unit['OrganizationCode']])) {
+          $units['loop'][$unit['OrganizationCode']] = $unitName;
+          $units['config'][$unit['OrganizationCode']] = $unitName;
+        }
+      }
     }
 
     //if nothing is select then set these to null
@@ -603,9 +604,9 @@ class Courses {
     $mule = \Drupal::service('washuas_wucrsl.mule');
 
     //if for cache purposes we have something to append to the soap function we do it here
-    $function = (empty($cacheAppend)) ? $api.'_'.$method : $api.'_'.$method.'_'.$cacheAppend ;
+    $cache = (empty($cacheAppend)) ? $api.'_'.$method : $api.'_'.$method.'_'.$cacheAppend ;
     //pull the associated data from cache
-    $data = $mule->getDataFromCache($this->config->get('wucrsl_cache_api'),$function);
+    $data = $mule->getDataFromCache($this->config->get('wucrsl_cache_api'),$cache);
     //if we were not able to get the needed data from cache then we will attempt to pull it from soap
     if (empty($data)){
       //we will use this to get the associated variables from the configuration, dev is the default
@@ -615,7 +616,7 @@ class Courses {
       //run the soap function to pull the data
       $data = $mule->executeFunction($url,$api,$method);
       //save the data to cache
-      $mule->saveDataToCache($this->config->get('wucrsl_cache_api'),$method,$data,strtotime('midnight') + (48*60*60),["wucrsl"]);
+      $mule->saveDataToCache($this->config->get('wucrsl_cache_api'),$cache,$data,strtotime('midnight') + (48*60*60),["wucrsl"]);
     }
     return $data;
   }
@@ -1027,9 +1028,8 @@ class Courses {
     }
     return ($sortA > $sortB) ? -1 : 1;
   }
-  function getDepartmentOptions($index){
-    //return $this->departments[$index];
-    return null;
+  function getAcademicUnitOptions($index){
+    return $this->units[$index];
   }
   public function initCoursesBatchBuilder($title):BatchBuilder{
     return (new BatchBuilder())
