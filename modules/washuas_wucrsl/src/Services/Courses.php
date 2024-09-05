@@ -19,15 +19,16 @@ class Courses {
   protected $config;
 
 
-  protected $departments;
+  protected $units;
   protected $currentSemester;
+  protected $mule;
   const SETTINGS = 'washuas_wucrsl.settings';
   const school = 'L';
 
   public function __construct() {
     $this->config = \Drupal::config(static::SETTINGS);
     $this->currentSemester = $this->getCurrentSemester();
-    $this->departments = $this->getDepartments();
+    $this->units = $this->getAcademicUnits();
   }
 
   public function getDepartments(){
@@ -56,6 +57,34 @@ class Courses {
     if ( !empty($departments['config']) ) asort($departments['config']);
 
     return $departments;
+  }
+  public function getAcademicUnits(){
+    //initialize our return array
+    $units = [];
+    //get the soap /
+    $apiUnits = $this->executeMuleRequest('organization','academicunits');
+    //get the active configuration
+    $configDepartments = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_department');
+    foreach ( $apiUnits as $unit){
+      $test = true;
+      //$deptName = $department->DepartmentName.'('.$department->DepartmentCode.')';
+      //$units['options'][$department->DepartmentCode] = $deptName;
+      //if this department code has a non-zero value in the configDepartments then add it's data to our loop array
+      //if ( !empty($configDepartments[$department->DepartmentCode])){
+      //  $units['loop'][$department->DepartmentCode] = $deptName;
+      //  $units['config'][$department->DepartmentCode] = $deptName;
+      //}
+    }
+
+    //if nothing is select then set these to null
+    $units['loop'] = (empty($units['loop']))? null : $units['loop'];
+    $units['config'] = (empty($units['config']))? null : $units['config'];
+
+    //sort the options arrays
+    if ( !empty($units['options']) ) asort($units['options']);
+    if ( !empty($units['config']) ) asort($units['config']);
+
+    return $units;
   }
   public function getCurrentSemester(){
     $now = new \DateTime('now');
@@ -538,7 +567,7 @@ class Courses {
     //if for cache purposes we have something to append to the soap function we do it here
     $function = (empty($cacheAppend)) ? $soapFunction : $soapFunction.'_'.$cacheAppend ;
     //pull the associated data from cache
-    $data = $soap->getDataFromCache($this->config->get('wucrsl_cache_soap'),$function);
+    $data = $soap->getDataFromCache($this->config->get('wucrsl_cache_api'),$function);
     //if we were not able to get the needed data from cache then we will attempt to pull it from soap
     if (empty($data)){
       //we will use this to get the associated variables from the configuration, dev is the default
@@ -549,7 +578,44 @@ class Courses {
       //run the soap function to pull the data
       $data = $soap->executeFunction($url,$parameters,$soapFunction);
       //save the data to cache
-      $soap->saveDataToCache($this->config->get('wucrsl_cache_soap'),$function,$data,strtotime('midnight') + (48*60*60),["wucrsl"]);
+      $soap->saveDataToCache($this->config->get('wucrsl_cache_api'),$function,$data,strtotime('midnight') + (48*60*60),["wucrsl"]);
+    }
+    return $data;
+  }
+
+  /**
+   * Makes the soap call given configuration and the function
+   *
+   * @param string $soapFunction
+   *  the function that we'll call via soap
+   *
+   * @param integer $semester
+   *  the semester for which we'll pull the data
+   *
+   * @param string $neededIndex
+   *   an index to check cached data for, needs review
+   *
+   * @return object $data
+   *  the associated soap data pulled from the request or cache
+   *
+   */
+  function executeMuleRequest($api,$method,$semester=null,$unit=null,$cacheAppend=null) {
+    $mule = \Drupal::service('washuas_wucrsl.mule');
+
+    //if for cache purposes we have something to append to the soap function we do it here
+    $function = (empty($cacheAppend)) ? $api.'_'.$method : $api.'_'.$method.'_'.$cacheAppend ;
+    //pull the associated data from cache
+    $data = $mule->getDataFromCache($this->config->get('wucrsl_cache_api'),$function);
+    //if we were not able to get the needed data from cache then we will attempt to pull it from soap
+    if (empty($data)){
+      //we will use this to get the associated variables from the configuration, dev is the default
+      $url = $this->config->get('wucrsl_request_url');
+      //get the needed parameters for this particular soap function
+      //$parameters = $this->getAPIParameters($api,$function,$semester,$unit);
+      //run the soap function to pull the data
+      $data = $mule->executeFunction($url,$api,$method);
+      //save the data to cache
+      $mule->saveDataToCache($this->config->get('wucrsl_cache_api'),$method,$data,strtotime('midnight') + (48*60*60),["wucrsl"]);
     }
     return $data;
   }
@@ -962,7 +1028,8 @@ class Courses {
     return ($sortA > $sortB) ? -1 : 1;
   }
   function getDepartmentOptions($index){
-    return $this->departments[$index];
+    //return $this->departments[$index];
+    return null;
   }
   public function initCoursesBatchBuilder($title):BatchBuilder{
     return (new BatchBuilder())

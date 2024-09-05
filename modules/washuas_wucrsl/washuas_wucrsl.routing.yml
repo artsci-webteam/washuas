@@ -6,10 +6,10 @@ system.admin_config_washuas_wucrsl:
   requirements:
     _permission: 'administer basic site settings'
 washuas_wucrsl.settings:
-  path: '/admin/config/washuas/wucrsl/settings'
+  path: '/admin/config/washuas/api/settings'
   defaults:
-    _form: '\Drupal\washuas_wucrsl\Form\WashuasWucrslSettingsForm'
-    _title: 'Courses Soap Settings'
+    _form: '\Drupal\washuas_wucrsl\Form\WashuasMuleSoftSettingsForm'
+    _title: 'Courses API Settings'
   requirements:
     _permission: 'administer site configuration'
 washuas_wucrsl.departments:

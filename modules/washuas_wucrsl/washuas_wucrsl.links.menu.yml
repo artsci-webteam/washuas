@@ -4,7 +4,7 @@ system.admin_config_washuas_wucrsl:
   route_name: system.admin_config_washuas_wucrsl
   weight: -100
 washuas_wucrsl.settings:
-  title: SOAP Settings
+  title: API Settings
   parent: system.admin_config_washuas_wucrsl
   route_name: washuas_wucrsl.settings
   weight: 9
