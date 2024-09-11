@@ -135,21 +135,21 @@ class Mule {
     //if we're here then it's time for us to use some SOAP
     $apiURL = $url.$api."/".$function;
     try {
-      $response = \Drupal::httpClient()->get($apiURL, $parameters);
-      $data = json_decode((string) $response->getBody(), TRUE);
-      $returnData = $data[$key];
+      $returnData = [];
+      do {
+        //make the request to the api
+        $response = \Drupal::httpClient()->get($apiURL, $parameters);
+        //decode the data from the response
+        $data = json_decode((string) $response->getBody(), TRUE);
+        //this will store all the data from all the pages
+        $returnData = array_merge($returnData,$data[$key]);
+        //this will contain the next page url api to use if there is one
+        $apiURL = $data["links"]["next"];
+        //since we are using the next link any query will return the wrong results
+        unset($parameters['query']);
+      } while (!empty($apiURL));
 
-      //if we have more than one page, we loop through all of the pages
-      // adding the data to our return array as we go
-      if ( $data["meta"]["TotalPages"] > 1 ){
-        for ($i=2;$i<=$data["meta"]["TotalPages"];$i++){
-          $parameters['query']['page'] = $i;
-          $response = \Drupal::httpClient()->get($apiURL, $parameters);
-          $page = json_decode((string) $response->getBody(), TRUE)[$key];
-          $returnData = array_merge($returnData,$page);
-        }
-      }
-      return $returnData ?? null;
+      return $returnData;
     }
     catch (\Exception $e) {
       $message = 'MuleSoft API Connection Error at '.$apiURL.' '.$e->getMessage();
