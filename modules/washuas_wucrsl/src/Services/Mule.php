@@ -83,28 +83,36 @@ class Mule {
    * @param string $semester
    *  the semester for which we'll pull the data
    *
-   * @return array $params
+   * @return array $query
    *  the parameters we will use for soap calls
    *
    */
-  public function getAPIParameters($api,$function,$semester=null,$unit=null): array {
+  public function getAPIData($api,$function,$semester=null,$unit=null): array {
     //this will be our return values($api,$function,$semester,$unit)
-    $params = [];
+    $token = $this->getAccessToken($this->clientID,$this->clientSecret);
+    $timeStamp = new \DateTime('now');
+    //this is the array that we'll send with the get request to the mulesoft api
+    $parameters['headers'][ 'Authorization'] = 'Bearer ' . $token ;
+    $parameters['headers'][ 'X-Correlation-ID'] = 'Shared-'. $timeStamp->format('c');
 
-    //pull the department from the configuration or set the default to L
-    //@todo change the default department and school?
-    //Set the environment parameters based on the selected environment of the configuration screen
-    $params['ClientID'] = $this->clientID;
-    $params['ClientSecret'] = $this->clientSecret;
-    //get the current semester if needed
-    $current = $this->getCurrentSemester()["sort"];
-    switch( $api.'_'.$function ){
-      case "organization_academicunits":
+    switch( $api.'/'.$function ){
+      case "academic/courses":
+        //if we have an academic unit then add that to the query
+        $parameters['query']['AcademicUnit_id'] = $unit;
+        $key = 'courses';
+        break;
+      case "academic/sections":
+        //if we have an academic unit then add that to the query
+        $parameters['query']['AcademicPeriod_id'] = $semester;
+        $key = 'sections';
+        break;
+      case "organization/academicunits":
       default:
+        $key = 'organizations';
         break;
     }
 
-    return $params;
+    return ["params"=>$parameters,"key"=>$key];
   }
 
 
@@ -123,40 +131,32 @@ class Mule {
    *
    * @throws
    */
-  function executeFunction($url,$api,$function) {
-    $token = $this->getAccessToken($this->clientID,$this->clientSecret);
-
+  function executeFunction($url, $api, $function,$key, array $parameters) {
     //if we're here then it's time for us to use some SOAP
     $apiURL = $url.$api."/".$function;
     try {
-      $response = \Drupal::httpClient()
-        ->get($apiURL, [
-          'headers' => [
-            'Authorization' => 'Bearer ' . $token,
-            //'X-Correlation-ID' => ,
-          ],
-          'query' => [
-            'Count' => '999',
-          ],
-        ]);
-
-
+      $response = \Drupal::httpClient()->get($apiURL, $parameters);
       $data = json_decode((string) $response->getBody(), TRUE);
+      $returnData = $data[$key];
 
-      return $data ?? null;
+      //if we have more than one page, we loop through all of the pages
+      // adding the data to our return array as we go
+      if ( $data["meta"]["TotalPages"] > 1 ){
+        for ($i=2;$i<=$data["meta"]["TotalPages"];$i++){
+          $parameters['query']['page'] = $i;
+          $response = \Drupal::httpClient()->get($apiURL, $parameters);
+          $page = json_decode((string) $response->getBody(), TRUE)[$key];
+          $returnData = array_merge($returnData,$page);
+        }
+      }
+      return $returnData ?? null;
     }
     catch (\Exception $e) {
-      $message = 'SOAP failure in '.$soapFunction.' '.$e->getMessage();
+      $message = 'MuleSoft API Connection Error at '.$apiURL.' '.$e->getMessage();
       $this->loggerFactory->get('washuas_wucrsl')->error($message);
       $this->messenger->addError($message);
       return null;
     }
-
-    $url = $this->config->get('wucrsl_token_url');
-    if ( empty($url)){
-      return '';
-    }
-
   }
 
 
@@ -215,7 +215,7 @@ class Mule {
    * @throws
    */
   function saveDataToCache($cacheData,$cacheStorage,$data,$expiration,$tags):void{
-    // cache the departments
+    // cache the data
     if($cacheData){
       \Drupal::cache('data')->set($cacheStorage, $data,$expiration,$tags);
     }

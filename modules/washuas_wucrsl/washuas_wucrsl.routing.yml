@@ -8,7 +8,7 @@ system.admin_config_washuas_wucrsl:
 washuas_wucrsl.settings:
   path: '/admin/config/washuas/api/settings'
   defaults:
-    _form: '\Drupal\washuas_wucrsl\Form\WashuasMuleSoftSettingsForm'
+    _form: '\Drupal\washuas_wucrsl\Form\WashuasWucrslMuleSoftSettingsForm'
     _title: 'Courses API Settings'
   requirements:
     _permission: 'administer site configuration'
@@ -16,7 +16,7 @@ washuas_wucrsl.units:
   path: '/admin/config/washuas/wucrsl/academic_units'
   defaults:
     _form: '\Drupal\washuas_wucrsl\Form\WashuasWucrslAcademicUnitsForm'
-    _title: 'Departments to import courses from.'
+    _title: 'Academic Units to import courses from.'
   requirements:
     _permission: 'administer site configuration'
 washuas_wucrsl.manual:

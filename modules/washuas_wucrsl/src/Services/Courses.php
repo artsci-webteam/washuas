@@ -31,45 +31,18 @@ class Courses {
     $this->units = $this->getAcademicUnits();
   }
 
-  public function getDepartments(){
-    //initialize our return array
-    $departments = [];
-    //get the soap departments
-    $soapDepartments = $this->executeSoapRequest('GetDepartments', $this->currentSemester["sort"])->Departments;
-    //get the active configuration
-    $configDepartments = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
-    foreach ( $soapDepartments as $department){
-      $deptName = $department->DepartmentName.'('.$department->DepartmentCode.')';
-      $departments['options'][$department->DepartmentCode] = $deptName;
-      //if this department code has a non-zero value in the configDepartments then add it's data to our loop array
-      if ( !empty($configDepartments[$department->DepartmentCode])){
-        $departments['loop'][$department->DepartmentCode] = $deptName;
-        $departments['config'][$department->DepartmentCode] = $deptName;
-      }
-    }
-
-    //if nothing is select then set these to null
-    $departments['loop'] = (empty($departments['loop']))? null : $departments['loop'];
-    $departments['config'] = (empty($departments['config']))? null : $departments['config'];
-
-    //sort the options arrays
-    if ( !empty($departments['options']) ) asort($departments['options']);
-    if ( !empty($departments['config']) ) asort($departments['config']);
-
-    return $departments;
-  }
   public function getAcademicUnits(){
     //initialize our return array
     $units = [];
     //get the soap /
-    $apiUnits = $this->executeMuleRequest('organization','academicunits')['organizations'];
+    $apiUnits = $this->executeMuleRequest('organization','academicunits');
     //get the active configuration
     $configUnits = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
     foreach ( $apiUnits as $unit){
       if ( isset($unit['Hierarchy']['SuperiorOrganization_id']) && ( $unit['Hierarchy']['SuperiorOrganization_id'] == 'AU100069' ) ) {
         $unitName = $unit['OrganizationName'].'('.$unit['OrganizationCode'].')';
         $units['options'][$unit['OrganizationCode']] = $unitName;
-        //if this department code has a non-zero value in the configDepartments then add it's data to our loop array
+        //if this academic unit has a non-zero value in the configUnits then add it's data to our loop array
         if ( !empty($configUnits[$unit['OrganizationCode']])) {
           $units['loop'][$unit['OrganizationCode']] = $unitName;
           $units['config'][$unit['OrganizationCode']] = $unitName;
@@ -97,11 +70,11 @@ class Courses {
     $year = ( ( $month == 12 ) && ( $day >= 15 ) )? (intval($year) + 1) : $year;
 
     if ( ( $month < 5 ) || ( ( $month == 12 ) && ( $day >= 15 ) ) ){
-      return ["semester"=>'SP',"year"=>$year,"sort"=>$year."02"]; //if it's before may or it's dec and the 15th or after then we are in the spring semester, 02
+      return ["semester"=>'SPRING',"year"=>$year]; //if it's before may or it's dec and the 15th or after then we are in the spring semester, 02
     } else if ( $month >= 5 && $month < 8 ) { //semester = 03
-      return ["semester"=>'SU',"year"=>$year,"sort"=>$year."03"]; //if it's between may and july then we are in the summer semester, 03
+      return ["semester"=>'SUMMER',"year"=>$year]; //if it's between may and july then we are in the summer semester, 03
     } else {
-      return ["semester"=>'FL',"year"=>$year,"sort"=>$year."05"]; //default, it's between aug and nov or in december before the 15th then we are in the fall semester, 05
+      return ["semester"=>'FALL',"year"=>$year]; //default, it's between aug and nov or in december before the 15th then we are in the fall semester, 05
     }
   }
   /**
@@ -114,17 +87,17 @@ class Courses {
     $now = new \DateTime('now');
     $month = $now->format('m');
 
-    $semesters[] = $this->currentSemester["sort"];
+    $semesters[] = $this->currentSemester["semester"].'_'.$this->currentSemester["year"];
     switch($this->currentSemester["semester"]){
-      case 'SP':
-        $semesters[] = $this->currentSemester["year"]."03";
+      case 'SPRING':
+        $semesters[] = 'SUMMER_'.$this->currentSemester["year"];
         break;
-      case 'SU':
-        $semesters[] = $this->currentSemester["year"]."05";
+      case 'SUMMER':
+        $semesters[] = 'FALL_'.$this->currentSemester["year"];
         break;
-      case 'FL':
+      case 'FALL':
       default:
-        $semesters[] = (intval($this->currentSemester["year"]) + 1)."02";
+        $semesters[] = 'SPRING_'.(intval($this->currentSemester["year"]) + 1);
         break;
     }
     return $semesters;
@@ -143,24 +116,24 @@ class Courses {
     // Given that I am a visitor, when I view the courses offered, then I will see courses
     // for the two prior semesters, the current semester and the next semester displayed on the website.
     switch($this->currentSemester["semester"]){
-      case 'SP':
-        $terms[] = "SU".$this->currentSemester["year"]; //next semester
+      case 'SPRING':
+        $terms[] = "SUMMER_".$this->currentSemester["year"]; //next semester
         $terms[] = $currentSemester;
-        $terms[] = "FL".(intval($this->currentSemester["year"]) - 1); //one semester prior
-        $terms[] = "SU".(intval($this->currentSemester["year"]) - 1); //two semesters prior
+        $terms[] = "FALL_".(intval($this->currentSemester["year"]) - 1); //one semester prior
+        $terms[] = "SUMMER_".(intval($this->currentSemester["year"]) - 1); //two semesters prior
         break;
-      case 'SU':
-        $terms[] = "FL".$this->currentSemester["year"]; //next semester
+      case 'SUMMER':
+        $terms[] = "FALL_".$this->currentSemester["year"]; //next semester
         $terms[] = $currentSemester;
-        $terms[] = "SP".$this->currentSemester["year"]; //one semester prior
-        $terms[] = "FL".(intval($this->currentSemester["year"]) - 1); //two semesters prior
+        $terms[] = "SPRING_".$this->currentSemester["year"]; //one semester prior
+        $terms[] = "FALL_".(intval($this->currentSemester["year"]) - 1); //two semesters prior
         break;
-      case 'FL':
+      case 'FALL':
       default:
-        $terms[] = "SP".(intval($this->currentSemester["year"]) + 1); //next semester
+        $terms[] = "SPRING_".(intval($this->currentSemester["year"]) + 1); //next semester
         $terms[] = $currentSemester;
-        $terms[] = "SU".$this->currentSemester["year"]; //one semester prior
-        $terms[] = "SP".$this->currentSemester["year"]; //two semesters prior
+        $terms[] = "SUMMER_".$this->currentSemester["year"]; //one semester prior
+        $terms[] = "SPRING_".$this->currentSemester["year"]; //two semesters prior
         break;
     }
 
@@ -191,30 +164,30 @@ class Courses {
     // Given that I am a visitor, when I view the courses offered, then I will see courses
     // for the two prior semesters, the current semester and the next semester displayed on the website.
     switch($this->currentSemester["semester"]){
-      case 'SP':
-        $terms[] = $this->currentSemester["year"]."03"; //next semester
+      case 'SPRING':
+        $terms[] = 'SUMMER_'.$this->currentSemester["year"]; //next semester
         $terms[] = $currentSemester;
-        $terms[] = (intval($this->currentSemester["year"]) - 1)."05"; //one semester prior
-        $terms[] = (intval($this->currentSemester["year"]) - 1)."03"; //two semesters prior
+        $terms[] = 'FALL_'.(intval($this->currentSemester["year"]) - 1); //one semester prior
+        $terms[] = 'SUMMER_'.(intval($this->currentSemester["year"]) - 1); //two semesters prior
         break;
-      case 'SU':
-        $terms[] = $this->currentSemester["year"]."05"; //next semester
+      case 'SUMMER':
+        $terms[] = 'FALL_'.$this->currentSemester["year"]; //next semester
         $terms[] = $currentSemester;
-        $terms[] = $this->currentSemester["year"]."02"; //one semester prior
-        $terms[] = (intval($this->currentSemester["year"]) - 1)."05"; //two semesters prior
+        $terms[] = 'SPRING_'.$this->currentSemester["year"]; //one semester prior
+        $terms[] = 'FALL_'.(intval($this->currentSemester["year"]) - 1); //two semesters prior
         break;
-      case 'FL':
+      case 'FALL':
       default:
-        $terms[] = (intval($this->currentSemester["year"]) + 1)."02"; //next semester
+        $terms[] = 'SPRING_'.(intval($this->currentSemester["year"]) + 1)."02"; //next semester
         $terms[] = $currentSemester;
-        $terms[] = $this->currentSemester["year"]."03"; //one semester prior
-        $terms[] = $this->currentSemester["year"]."02"; //two semesters prior
+        $terms[] = 'SUMMER_'.$this->currentSemester["year"]; //one semester prior
+        $terms[] = 'SPRING_'.$this->currentSemester["year"]; //two semesters prior
         break;
     }
 
     //all we need is the term id in this instance
     foreach ( $terms as $semester){
-      $semesters[$semester] = $this->getDisplaySemester($semester);
+      $semesters[$semester] = $semester;
     }
     return $semesters;
   }
@@ -228,13 +201,13 @@ class Courses {
    *
    * @throws
    */
-  function getCoursesBatch($semester=null,$departments=[],$cron=false):array {
+  function getCoursesBatch($semester=null,$units=[],$cron=false):array {
     if ($cron){
       $title = 'Courses Import';
-      $departments = $this->departments['loop'];
+      $units = $this->units['loop'];
       $semesters = $this->getSemestersToRun();
     }else{ //add an informative title for manual imports
-      $title = reset($departments).' Courses Import for '.$this->getDisplaySemester($semester);
+      $title = reset($units).' Courses Import for '.$semester;
       $semesters = [$semester];
     }
 
@@ -242,44 +215,38 @@ class Courses {
     $operations = [];
     $batch_builder = $this->initCoursesBatchBuilder($title);
 
-    //if the departments are empty then there isn't anything to do, set a message and return
-    if (empty($departments)){
+    //if the academic units are empty then there isn't anything to do, set a message and return
+    if (empty($units)){
       $this->addMessageAndLog('The departments must be selected in order to run the import. Please set the departments.');
       return $batch_builder->toArray();
     }
 
-    foreach ( $departments as $deptCode => $deptName){
-      //if the department is empty move to next iteration
-      if (empty($deptCode)) continue;
-      foreach( $semesters as $semester ) {
-        //no matter what we need to get the semester term id or create it we do that here
-        $displaySemester = $this->getDisplaySemester($semester);
-        $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
-        $semesterTerm = $entityTools->createOrGetTerm('semester', $displaySemester);
+    foreach ( $units as $unitID => $unitName) {
+      //if the unit is empty move to next iteration
+      if (empty($unitID)) continue;
 
-        //we append the department and semester to the soap function name so the correct data is pulled from cache
-        $cacheAppend = $deptCode.'_'.$semester;
-        //get the curriculum, the sections will be assigned to the curriculum accordingly
-        $curriculum = $this->executeSoapRequest('GetCurriculumbyDeptbyASemester',$semester,$deptCode,$cacheAppend);
-
-        //if there isn't curriculum, log that and then move to the next iteration
-        if (empty($curriculum->Curriculum) ) {
-          $this->addMessageAndLog('There are no '.$deptName.' courses to import for '.$displaySemester.'.');
-          continue;
-        }
-        $sections = $this->executeSoapRequest('GetCoursesByDept',$semester,$deptCode,$cacheAppend)->CourseSection;
-        $sections = $this->createSections($sections,$semesterTerm,$deptCode);
-        //it's possible that we only have one course for the semester, this handles that
-        $courses = (is_object($curriculum->Curriculum))? [$curriculum->Curriculum] : $curriculum->Curriculum;
-        //if we're here then it's time to process the course data
-        foreach( $courses as $course ) {
-          $courseSections = $sections[trim($course->CourseNumber)] ?? [];
-          if ( !empty($course->CourseTitle) && !empty($courseSections) ){
-              $batch_builder->addOperation([$this, 'processCourse'], [$course,$courseSections,$semesterTerm]);
-          }
+      //get the curriculum
+      $curriculum = $this->executeMuleRequest('academic', 'courses', [], $unitID, $unitID);
+      //reformat the curriculum
+    }
+    foreach( $semesters as $semester ) {
+     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
+      $semesterTerm = $entityTools->createOrGetTerm('semester', $semester);
+      $sections = $this->executeMuleRequest('academic','sections',$semester,'',$semester);
+      /*
+      $sections = $this->createSections($sections,$semesterTerm,$unitID);
+      //it's possible that we only have one course for the semester, this handles that
+      $courses = (is_object($curriculum->Curriculum))? [$curriculum->Curriculum] : $curriculum->Curriculum;
+      //if we're here then it's time to process the course data
+      foreach( $courses as $course ) {
+        $courseSections = $sections[trim($course->CourseNumber)] ?? [];
+        if ( !empty($course->CourseTitle) && !empty($courseSections) ){
+          $batch_builder->addOperation([$this, 'processCourse'], [$course,$courseSections,$semesterTerm]);
         }
       }
+      */
     }
+
     //batch set and batch process calls go here
     return $batch_builder->toArray();
   }
@@ -287,7 +254,7 @@ class Courses {
   function processCourse($course,$courseSections,$semesterTerm, &$context){
     //If there is already a course then we will update
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
-    $deptName = trim($course->Departmentname);
+    $unitName = trim($course->Departmentname);
     //add the fields that we will execute the query for in the entity tools service
     //these are stored as arrays under the operator we want to use
     $fields['='] = [
@@ -299,8 +266,8 @@ class Courses {
     //retrieve the existing nodes, but only if we have an existing taxonomy term as it's a filter
     $courseIDs = (empty($semesterTerm))? false : $entityTools->getNodeIDsByFields($fields);
 
-    if (!isset($context['results'][$deptName][$course->DisplaySemester])){
-      $context['results'][$deptName][$course->DisplaySemester] = ["updated"=>0,"added"=>0];
+    if (!isset($context['results'][$unitName][$course->DisplaySemester])){
+      $context['results'][$unitName][$course->DisplaySemester] = ["updated"=>0,"added"=>0];
     }
 
     //create the paragraphs for the sections
@@ -310,11 +277,11 @@ class Courses {
     if ( empty($courseIDs) ){
       //first attempt to get the term for the semester
       $new = $this->createCourse($course,$courseSections,$semesterTerm);
-      $context['results'][$deptName][$course->DisplaySemester]['added']+= (empty($new))? 0:1;
+      $context['results'][$unitName][$course->DisplaySemester]['added']+= (empty($new))? 0:1;
 
     }else{
       $this->updateCourse($courseIDs,$course,$courseSections);
-      $context['results'][$deptName][$course->DisplaySemester]['updated']+= 1;
+      $context['results'][$unitName][$course->DisplaySemester]['updated']+= 1;
     }
   }
     /**
@@ -502,89 +469,6 @@ class Courses {
   }
 
   /**
-   * Gets the soap parameters that we will use to make our calls
-   *
-   * @param string $env
-   *  the environment used to pull configuration from
-   *
-   * @param string $function
-   *  the soap function we will be calling
-   *
-   * @param string $semester
-   *  the semester for which we'll pull the data
-   *
-   * @return array $params
-   *  the parameters we will use for soap calls
-   *
-   */
-  public function getSoapParameters($env,$function=null,$semester=null,$department=null): array {
-    //this will be our return value
-    $params = [];
-
-    //pull the department from the configuration or set the default to L
-    //@todo change the default department and school?
-    //Set the environment parameters based on the selected environment of the configuration screen
-    $params['ApplicationToken'] = $this->config->get('wucrsl_'.$env.'_soap_client_id');
-    $params['ApplicationPwd'] = $this->config->get('wucrsl_'.$env.'_soap_client_pw');
-    //get the current semester if needed
-    $current = $this->getCurrentSemester()["sort"];
-    switch( $function ){
-      case "GetCoursesByDept":
-      case "GetCurriculumbyDeptbyASemester":
-        $params['DeptCd'] = $department;
-        $params['SchoolCd'] = static::school;
-        //@todo update the below to instead use our function to grab the current semester
-        $params['SortSemester'] = empty($semester) ? (int)$current : (int)$semester;
-        break;
-      case "GetDepartments":
-        $params['SchoolCd'] = static::school;
-        $params['Semester'] = empty($semester) ? (int)$current : (int)$semester;
-        break;
-      default:
-        break;
-    }
-
-    return $params;
-  }
-
-  /**
-   * Makes the soap call given configuration and the function
-   *
-   * @param string $soapFunction
-   *  the function that we'll call via soap
-   *
-   * @param integer $semester
-   *  the semester for which we'll pull the data
-   *
-   * @param string $neededIndex
-   *   an index to check cached data for, needs review
-   *
-   * @return object $data
-   *  the associated soap data pulled from the request or cache
-   *
-   */
-  function executeSoapRequest($soapFunction,$semester,$department=null,$cacheAppend=null) {
-    $soap = \Drupal::service('washuas_wucrsl.soap');
-    //if for cache purposes we have something to append to the soap function we do it here
-    $function = (empty($cacheAppend)) ? $soapFunction : $soapFunction.'_'.$cacheAppend ;
-    //pull the associated data from cache
-    $data = $soap->getDataFromCache($this->config->get('wucrsl_cache_api'),$function);
-    //if we were not able to get the needed data from cache then we will attempt to pull it from soap
-    if (empty($data)){
-      //we will use this to get the associated variables from the configuration, dev is the default
-      $env = empty($this->config->get('wucrsl_soap_env')) ? 'dev' : $this->config->get('wucrsl_soap_env') ;
-      $url = $this->config->get('wucrsl_'.$env.'_soap_url');
-      //get the needed parameters for this particular soap function
-      $parameters = $this->getSoapParameters($env,$soapFunction,$semester,$department);
-      //run the soap function to pull the data
-      $data = $soap->executeFunction($url,$parameters,$soapFunction);
-      //save the data to cache
-      $soap->saveDataToCache($this->config->get('wucrsl_cache_api'),$function,$data,strtotime('midnight') + (48*60*60),["wucrsl"]);
-    }
-    return $data;
-  }
-
-  /**
    * Makes the soap call given configuration and the function
    *
    * @param string $soapFunction
@@ -611,10 +495,10 @@ class Courses {
     if (empty($data)){
       //we will use this to get the associated variables from the configuration, dev is the default
       $url = $this->config->get('wucrsl_request_url');
-      //get the needed parameters for this particular soap function
-      //$parameters = $this->getAPIParameters($api,$function,$semester,$unit);
+      //this retrieves the parameters for the api and the key for it's data in the array
+      $apiData = $mule->getAPIData($api,$method,$semester,$unit);
       //run the soap function to pull the data
-      $data = $mule->executeFunction($url,$api,$method);
+      $data = $mule->executeFunction($url,$api,$method,$apiData["key"],$apiData["params"]);
       //save the data to cache
       $mule->saveDataToCache($this->config->get('wucrsl_cache_api'),$cache,$data,strtotime('midnight') + (48*60*60),["wucrsl"]);
     }
@@ -965,32 +849,6 @@ class Courses {
   }
 
   /**
-   * Reformat the sort semester to display semester
-   *
-   * @param string $semester
-   *  the sort semester we'll reformat
-   *
-   * @return string
-   *  the display Semester
-   *
-   * @throws
-   */
-  function getDisplaySemester(string $semester):string {
-    $seasons = array(
-      1 => 'JI',
-      2 => 'SP',
-      3 => 'SU',
-      4 => 'YR',
-      5 => 'FL',
-    );
-
-    $season = (int)substr($semester, 4);
-    $year = (int)substr($semester, 0, 4);
-
-    return $seasons[$season] . $year;
-  }
-
-  /**
    * Reformat the display semester to sort semester
    *
    * @param string $semester
@@ -1007,11 +865,9 @@ class Courses {
       return FALSE;
 
     $seasons = array(
-      'JI' => '01',
-      'SP' => '02',
-      'SU' => '03',
-      'YR' => '04',
-      'FL' => '05',
+      'SPRING' => '02',
+      'SUMMER' => '03',
+      'FALL' => '05',
     );
 
     $season = substr($semester, 0, 2);
