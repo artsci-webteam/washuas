@@ -108,7 +108,7 @@ class WashuasWucrslMuleSoftSettingsForm extends ConfigFormBase {
     $form['wucrsl_client_id'] = array(
       '#type' => 'textfield',
       '#title' => t('Client ID'),
-      '#description' => t('The Client ID needed to access the api, this is set in the .env file and thus read only.'),
+      '#description' => t("The Client ID needed to access the api, this is set in the .env file and thus read only. If this value is missing be sure to add it to the .env with: COURSES_CLIENT_ID='client_id'"),
       '#default_value' => $_ENV['COURSES_CLIENT_ID'] ?? 'client id',
       '#size' => 60,
       '#maxlength' => 256,
@@ -122,7 +122,7 @@ class WashuasWucrslMuleSoftSettingsForm extends ConfigFormBase {
     $form['wucrsl_client_secret'] = array(
       '#type' => 'textfield',
       '#title' => t('Client Secret'),
-      '#description' => t('The Client Secret needed to access the api, this is set in the .env file and thus read only.'),
+      '#description' => t("The Client Secret needed to access the api, this is set in the .env file and thus read only. If this value is missing be sure to add it to the .env with: COURSES_CLIENT_SECRET='client_secret'"),
       '#default_value' => $_ENV['COURSES_CLIENT_SECRET'] ?? 'client secret',
       '#size' => 60,
       '#maxlength' => 256,
