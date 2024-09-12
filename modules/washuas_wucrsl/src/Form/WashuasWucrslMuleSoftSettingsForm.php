@@ -108,22 +108,28 @@ class WashuasWucrslMuleSoftSettingsForm extends ConfigFormBase {
     $form['wucrsl_client_id'] = array(
       '#type' => 'textfield',
       '#title' => t('Client ID'),
-      '#description' => t('The Client ID needed to access the api.'),
+      '#description' => t('The Client ID needed to access the api, this is set in the .env file and thus read only.'),
       '#default_value' => $_ENV['COURSES_CLIENT_ID'] ?? 'client id',
       '#size' => 60,
       '#maxlength' => 256,
       '#required' => FALSE,
+      '#attributes' => [
+        'readonly' => 'readonly',
+      ],
     );
 
 
     $form['wucrsl_client_secret'] = array(
       '#type' => 'textfield',
       '#title' => t('Client Secret'),
-      '#description' => t('The Client Secret needed to access the api.'),
+      '#description' => t('The Client Secret needed to access the api, this is set in the .env file and thus read only.'),
       '#default_value' => $_ENV['COURSES_CLIENT_SECRET'] ?? 'client secret',
       '#size' => 60,
       '#maxlength' => 256,
       '#required' => FALSE,
+      '#attributes' => [
+        'readonly' => 'readonly',
+      ],
     );
 
     return parent::buildForm($form, $form_state);
