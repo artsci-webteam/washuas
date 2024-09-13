@@ -87,7 +87,7 @@ class Mule {
    *  the parameters we will use for soap calls
    *
    */
-  public function getAPIData($api,$function,$semester=null,$unit=null): array {
+  public function getAPIParameters($api,$function,$query=[]): array {
     //this will be our return values($api,$function,$semester,$unit)
     $token = $this->getAccessToken($this->clientID,$this->clientSecret);
     $timeStamp = new \DateTime('now');
@@ -95,24 +95,12 @@ class Mule {
     $parameters['headers'][ 'Authorization'] = 'Bearer ' . $token ;
     $parameters['headers'][ 'X-Correlation-ID'] = 'Shared-'. $timeStamp->format('c');
 
-    switch( $api.'/'.$function ){
-      case "academic/courses":
-        //if we have an academic unit then add that to the query
-        $parameters['query']['AcademicUnit_id'] = $unit;
-        $key = 'courses';
-        break;
-      case "academic/sections":
-        //if we have an academic unit then add that to the query
-        $parameters['query']['AcademicPeriod_id'] = $semester;
-        $key = 'sections';
-        break;
-      case "organization/academicunits":
-      default:
-        $key = 'organizations';
-        break;
+    //if we have a query then add it
+    if (!empty($query)){
+      $parameters['query'] = $query;
     }
 
-    return ["params"=>$parameters,"key"=>$key];
+    return $parameters;
   }
 
 

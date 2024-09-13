@@ -36,7 +36,7 @@ class WashuasWucrslImportForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $courses = \Drupal::service('washuas_wucrsl.courses');
     //config returns everything with 0 values for non selected options, this removes those
-    $units = $courses->getUnitOptions('config');
+    $units = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');;
 
     if (empty($units)) {
       $aText = 'In order to import courses you must first set the academic units. Click here to set the academic units';
@@ -57,7 +57,7 @@ class WashuasWucrslImportForm extends FormBase {
       '#type' => 'select',
       '#title' => $this->t('Semester To Import'),
       '#options' => $courses->getManualImportSemesters(),
-      '#default_value' => $courses->getCurrentSemester()["sort"],
+      '#default_value' => $courses->getCurrentSemester()["full"],
     ];
 
     $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Import Courses')];

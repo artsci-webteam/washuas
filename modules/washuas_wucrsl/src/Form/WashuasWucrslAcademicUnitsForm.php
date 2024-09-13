@@ -73,12 +73,16 @@ class WashuasWucrslAcademicUnitsForm extends ConfigFormBase {
 
     //pull the configuration for this form
     $config = $this->config(static::SETTINGS);
+    $defaults = $config->get('wucrsl_academic_units');
+    foreach($defaults as $key=>$value){
+      $defaults[$key]=$key;
+    }
 
     $form['wucrsl_academic_units'] = [
       '#type' => 'checkboxes',
-      '#options' => $courses->getAcademicUnitOptions('options'),
+      '#options' => $courses->getAcademicUnitOptions(),
       '#title' => $this->t('Academic Units to import.'),
-      '#default_value' => $config->get('wucrsl_academic_units'),
+      '#default_value' => $defaults,
     ];
 
     return parent::buildForm($form, $form_state);
@@ -91,8 +95,15 @@ class WashuasWucrslAcademicUnitsForm extends ConfigFormBase {
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $config = $this->config(static::SETTINGS);
 
+    //get the unit names from the form options
+    $unitNames = $form_state->getCompleteForm()['wucrsl_academic_units']['#options'];
+    //filter the academic units so it only has the selected options
+    $unitIDs = array_filter($form_state->getValue('wucrsl_academic_units'));
+    //intersect the names list and values so we have both the selected unit id and value
+    $units = array_intersect_key($unitNames,$unitIDs);
+
     $config
-      ->set('wucrsl_academic_units', $form_state->getValue('wucrsl_academic_units'))
+      ->set('wucrsl_academic_units', $units)
       ->save();
 
     parent::submitForm($form, $form_state);
