@@ -73,17 +73,21 @@ class WashuasWucrslAcademicUnitsForm extends ConfigFormBase {
 
     //pull the configuration for this form
     $config = $this->config(static::SETTINGS);
-    $defaults = $config->get('wucrsl_academic_units');
-    foreach($defaults as $key=>$value){
-      $defaults[$key]=$key;
-    }
 
     $form['wucrsl_academic_units'] = [
       '#type' => 'checkboxes',
       '#options' => $courses->getAcademicUnitOptions(),
       '#title' => $this->t('Academic Units to import.'),
-      '#default_value' => $defaults,
     ];
+
+    //if we have any units selected then process and add 'em to the form
+    $defaults = $config->get('wucrsl_academic_units');
+    if (is_array($defaults)){
+      foreach($defaults as $key=>$value){
+        $defaults[$key]=$key;
+      }
+      $form['wucrsl_academic_units']['#default_value'] = $defaults;
+    }
 
     return parent::buildForm($form, $form_state);
   }
