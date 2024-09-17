@@ -1,4 +1,7 @@
 services:
+  washuas_wucrsl.cache:
+    class: Drupal\washuas_wucrsl\Services\Cache
+    arguments: []
   washuas_wucrsl.courses:
     class: Drupal\washuas_wucrsl\Services\Courses
     arguments: []

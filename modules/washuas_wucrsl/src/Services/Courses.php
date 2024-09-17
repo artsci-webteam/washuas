@@ -36,7 +36,7 @@ class Courses {
     $options = [];
     //get the soap /
     //@todo should we always call this ??
-    $apiUnits = $this->executeMuleRequest('organization','academicunits',[],'organizations');
+    $apiUnits = $this->executeMuleRequest('organization','academicunits',[],'organizations',true);
     //get the active configuration
     $configUnits = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
     foreach ( $apiUnits as $unit){
@@ -216,20 +216,12 @@ class Courses {
     foreach( $semesters as $semester ) {
      $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
       $semesterTerm = $entityTools->createOrGetTerm('semester', $semester);
-      $sections = $this->executeMuleRequest('academic','sections',['AcademicPeriod_id' => $semester],'sections');
+      $sections = $this->executeMuleRequest('academic','sections',['AcademicPeriod_id' => $semester],'sections',true,$semester);
       $sections = $this->createSections($sections,$semesterTerm);
-      //next we'll loop through the courses and pull the associated data
-      $courses = $this->getCourses($sections);
-      /*//it's possible that we only have one course for the semester, this handles that
-      $courses = (is_object($curriculum->Curriculum))? [$curriculum->Curriculum] : $curriculum->Curriculum;
-      //if we're here then it's time to process the course data
-      foreach( $courses as $course ) {
-        $courseSections = $sections[trim($course->CourseNumber)] ?? [];
-        if ( !empty($course->CourseTitle) && !empty($courseSections) ){
-          $batch_builder->addOperation([$this, 'processCourse'], [$course,$courseSections,$semesterTerm]);
-        }
-      }
-      */
+      //this calls the api and adds the course data to our array
+      $sections = $this->getCourses($sections);
+      //add this semesters section to the process
+      $batch_builder->addOperation([$this, 'processSemester'], [$sections,$semesterTerm]);
     }
 
     //batch set and batch process calls go here
@@ -238,53 +230,92 @@ class Courses {
 
   function getCourses($sections):array{
     //add call to pull the data from cache if it exists
-    $data= [];
-    //$fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]
+    $cache = \Drupal::service('washuas_wucrsl.cache');
+
     foreach ( $sections as $unit =>$semesters){
       foreach ( $semesters as $semester => $courses) {
-        foreach ($courses as $courseID => $courseSections) {
-          //if the unit is empty move to next iteration
-          //get the curriculum
-          $data = array_merge($data, $this->executeMuleRequest('academic', 'courses', ['AcademicUnit_id' => $unit,'StudentCourse_id' => $courseID], 'courses'));
+        //we're going to save the courses to cache at using the unit and semester
+        $cacheName = 'washuas_wucrsl_courses_'.$unit.'_'.$semester.'_';
+        //attempt to pull from cache
+        $data = $cache->getDataFromCache($cacheName);
+        //if we have the data we need then skip the rest
+        if (!empty($data)) continue;
+
+        //initialize our return array
+        $data[$unit][$semester] = [];
+        //we are going to pull down courses by sending the course Ids processed in the sections
+        //in batches of 50 to the courses api. Then we will get and return the course fields array, along with the course sections
+        //these are then sent over to the batch api for later cron processing
+        $batchCount = 50;
+        for ($i=0;$i<count($courses);$i+=$batchCount){
+          $batch = array_slice($courses,$i,$batchCount,true);
+          $courseIDs = implode(',',array_keys($batch));
+          $curriculum = $this->executeMuleRequest('academic', 'courses', ['AcademicUnit_id' => $unit,'StudentCourse_id' => $courseIDs],'courses');
+          //save the
+          foreach($curriculum as $course){
+            $sections[$unit][$semester][$course['Course_id']]['course'] = $course;
+          }
         }
+        $cache->saveDataToCache($cacheName,$sections);
       }
     }
-    return $data;
+
+    return $sections;
   }
-  function processCourse($course,$courseSections,$semesterTerm, &$context){
+  function getPeriodsOffered($periodsOffered){
+    $frequency = '';
+    foreach($periodsOffered as $period){
+      $frequency = (empty($frequency))?$period['AcademicPeriodsOfferedType_id']:','.$period['AcademicPeriodsOfferedType_id'];
+    }
+    return $frequency;
+  }
+  function processCourse($course,$semester,$semesterTerm, &$context):void{
     //If there is already a course then we will update
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
-    $unitName = trim($course->Departmentname);
+    $unitName = $course['course']['AcademicUnits'][0]['AcademicUnit'];
     //add the fields that we will execute the query for in the entity tools service
     //these are stored as arrays under the operator we want to use
     $fields['='] = [
       'type'=>'courses',
-      'field_course_id' => trim($course->CourseNumber),
-      'field_course_dept_code' => trim($course->DeptCD),
+      'field_course_id' => $course['course']['Course_id'],
+      'field_course_dept_code' => $course['course']['AcademicUnits'][0]['AcademicUnit_id'],
       'field_course_semester' => $semesterTerm,
     ];
+
     //retrieve the existing nodes, but only if we have an existing taxonomy term as it's a filter
     $courseIDs = (empty($semesterTerm))? false : $entityTools->getNodeIDsByFields($fields);
 
-    if (!isset($context['results'][$unitName][$course->DisplaySemester])){
-      $context['results'][$unitName][$course->DisplaySemester] = ["updated"=>0,"added"=>0];
+    if (!isset($context['results'][$unitName][$semester])){
+      $context['results'][$unitName][$semester] = ["updated"=>0,"added"=>0];
     }
 
     //create the paragraphs for the sections
-    $courseSections = $this->createSectionParagraphs($courseSections);
+    $courseSections = $this->createSectionParagraphs($course['sections']);
 
     //if no nodes were returned then we'll create a new course
     if ( empty($courseIDs) ){
       //first attempt to get the term for the semester
-      $new = $this->createCourse($course,$courseSections,$semesterTerm);
-      $context['results'][$unitName][$course->DisplaySemester]['added']+= (empty($new))? 0:1;
-
+      $new = $this->createCourse($course['course'],$courseSections,$semesterTerm);
+      $context['results'][$unitName][$semester]['added']+= (empty($new))? 0:1;
     }else{
-      $this->updateCourse($courseIDs,$course,$courseSections);
-      $context['results'][$unitName][$course->DisplaySemester]['updated']+= 1;
+      $this->updateCourse($courseIDs,$course['course'],$courseSections);
+      $context['results'][$unitName][$semester]['updated']+= 1;
     }
   }
-    /**
+  function processSemester($sections,$semesterTerm, &$context):void{
+    //If there is already a course then we will update
+    $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
+
+    foreach ( $sections as $unit =>$semesters) {
+      foreach ($semesters as $semester => $courses) {
+        foreach ($courses as $courseID => $course) {
+          $this->processCourse($course,$semester,$semesterTerm,$context);
+        }
+      }
+    }
+  }
+
+  /**
      * Creates and saves the new course node
      *
      * @param object $course
@@ -298,26 +329,25 @@ class Courses {
      * @throws
      */
     public function createCourse($course,$sections,$semester) {
-        $courseID = trim($course->CourseNumber);
-        $deptCD = trim($course->DeptCD);
         //if it's not set then create the term
         $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
         //these are the fields that we'll send to entity tools for creation
         $fields = [
-            'type' => 'courses',
-            'title' => trim($course->CourseTitle),
-            'field_course_id' => $courseID,
-            'field_course_description' => $course->Description,
-            'field_course_dept_code' => $deptCD,
-            'field_course_department_name' => $course->Departmentname,
-            'field_course_frequency' => $course->FrequencyOffered,
-            'field_course_credits' => $course->Credits,
-            'field_course_attributes' => $this->getCourseAttributes($course->CourseAttributes),
-            'field_course_level' => $this->getCourseLevel($courseID),
-            'field_course_sections'  => $sections,
-            'field_course_semester' => $semester,
+          'type' => 'courses',
+          'title' => $course['CourseTitle'],
+          'field_course_id' => $course['Course_id'],
+          'field_course_description' => $course['Description'],
+          'field_course_dept_code' => $course['AcademicUnits'][0]['AcademicUnit_id'],
+          'field_course_department_name' => $course['AcademicUnits'][0]['AcademicUnit'],
+          'field_course_frequency' => $this->getPeriodsOffered($course['PeriodsOffered']),
+          'field_course_credits' => $course['MaximumUnits'],
+          'field_course_attributes' => $this->getCourseAttributes($course['CourseTags']),
+          'field_course_level' => $this->getCourseLevel($course['Listings'][0]['CourseNumber']),
+          'field_course_sections'  => $sections,
+          'field_course_semester' => $semester,
         ];
-        //get the values that will carry over
+
+      //get the values that will carry over
         $fields += $this->getCurriculumSharedData($course);
 
         //create and save the course
@@ -343,12 +373,12 @@ class Courses {
     public function updateCourse($courseID,$course,$sections):void {
         //these are the fields that we'll send to entity tools for creation
         $fields = [
-            'field_course_description' => $course->Description,
-            'field_course_department_name' => $course->Departmentname,
-            'field_course_frequency' => $course->FrequencyOffered,
-            'field_course_credits' => $course->Credits,
-            'field_course_attributes' => $this->getCourseAttributes($course->CourseAttributes),
-            'field_course_sections'  => $sections,
+          'field_course_description' => $course['Description'],
+          'field_course_department_name' => $course['AcademicUnits'][0]['AcademicUnit'],
+          'field_course_frequency' => $this->getPeriodsOffered($course['PeriodsOffered']),
+          'field_course_credits' => $course['MaximumUnits'],
+          'field_course_attributes' => $this->getCourseAttributes($course['CourseTags']),
+          'field_course_sections'  => $sections,
         ];
       \Drupal::service('washuas_wucrsl.entitytools')->updateNodesByIDs($courseID,$fields);
     }
@@ -383,9 +413,10 @@ class Courses {
     //first attempt to pull any courses with the id
     $fields['='] = [
       'type'=>'courses',
-      'field_course_id' => trim($course->CourseNumber),
-      'field_course_dept_code' => trim($course->DeptCD),
+      'field_course_id' => $course['Course_id'],
+      'field_course_dept_code' => $course['AcademicUnits'][0]['AcademicUnit_id'],
     ];
+
 
     //retrieve the existing nodes, but only if we have an existing taxonomy term as it's a filter
     $courseIDs = $entityTools->getNodeIDsByFields($fields);
@@ -484,15 +515,29 @@ class Courses {
    *  the associated soap data pulled from the request or cache
    *
    */
-  function executeMuleRequest($api,$method,$query,$dataKey):array {
+  function executeMuleRequest($api,$method,$query,$dataKey,$useCache=false,$cacheAppend=''):array {
     $mule = \Drupal::service('washuas_wucrsl.mule');
+    //if for cache purposes we have something to append to the soap function we do it here
+    $cache = \Drupal::service('washuas_wucrsl.cache');
+    $cacheName = (empty($cacheAppend)) ? 'washuas_wucrsl_'.$api.'_'.$method : 'washuas_wucrsl_'.$api.'_'.$method.'_'.$cacheAppend ;
+    //pull the associated data from cache
+    $data = ($useCache)? $cache->getDataFromCache($this->config->get('wucrsl_cache_api'),$cacheName):[];
+    //if we were not able to get the needed data from cache then we will attempt to pull it from soap
+    if (empty($data)) {
 
-    //we will use this to get the associated variables from the configuration, dev is the default
-    $url = $this->config->get('wucrsl_request_url');
-    //this retrieves the parameters for the api and the key for it's data in the array
-    $parameters = $mule->getAPIParameters($api,$method,$query);
-    //run the soap function to pull the data
-    return $mule->executeFunction($url,$api,$method,$dataKey,$parameters);
+      //we will use this to get the associated variables from the configuration, dev is the default
+      $url = $this->config->get('wucrsl_request_url');
+      //this retrieves the parameters for the api and the key for it's data in the array
+      $parameters = $mule->getAPIParameters($api, $method, $query);
+      //run the soap function to pull the data
+      return $mule->executeFunction($url, $api, $method, $dataKey, $parameters);
+    }
+    //save the data to cache
+    if ($useCache){
+      $cache->saveDataToCache($cacheName,$data);
+    }
+
+    return $data;
   }
 
   /**
@@ -521,7 +566,7 @@ class Courses {
       //if we don't have an associated unit we don't need this course, move on
       if ( empty($unit) ) continue;
 
-      $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]][] = [
+      $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][] = [
         'type' => 'course_sections',
         'field_section_course_id' => [
           'value'  => trim($section["Course_id"]),
@@ -616,19 +661,7 @@ class Courses {
       $fields = [
         'type' => 'course_attributes',
         'field_ca_full_name' => [
-          'value'  => $attributes->FullName,
-        ],
-        'field_ca_group' => [
-          'value'  => $attributes->ATTRGroup,
-        ],
-        'field_ca_owner_full_name' => [
-          'value'  => $attributes->ATTROwnerFullName,
-        ],
-        'field_ca_owner_short_name' => [
-          'value'  => $attributes->ATTROwnerShortName,
-        ],
-        'field_ca_short_name' => [
-          'value'  => $attributes->Shortname,
+          'value'  => CourseTag_id,
         ],
       ];
       $paragraph = $entityTools->createContent($fields,'paragraph');
