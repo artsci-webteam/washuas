@@ -656,7 +656,7 @@ class Courses {
     foreach ( $courseAttributes as $attribute ) {
       $fields = [
         'type' => 'course_attributes',
-        'field_ca_full_name' => [
+        'field_ca_short_name' => [
           'value'  => $attribute['CourseTag_id'],
         ],
       ];
