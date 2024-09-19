@@ -557,35 +557,60 @@ class Courses {
   public function createSections(array $sections,$semester):array{
     $fields = [];
     //it's possible that we only have one section, this handles that
-    foreach ($sections as $section){
+    foreach ($sections as $section) {
       //pull the academic unit that we want this course for
-      $unit = $this->getNeededAcademicUnit($section["SectionAcademicUnits"]);
+      $unit = (array_key_exists('SectionAcademicUnits', $section)) ? $this->getNeededAcademicUnit($section["SectionAcademicUnits"]) : NULL;
       //if we don't have an associated unit we don't need this course, move on
-      if ( empty($unit) ) continue;
+      if (empty($unit)) continue;
 
       $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]] = [
         'type' => 'course_sections',
         'field_section_course_id' => [
-          'value'  => $section["Course_id"],
+          'value' => $section["Course_id"],
         ],
         'field_section_dept_code' => [
-          'value'  => $unit,
+          'value' => $unit,
         ],
-        'field_room_schedules' => $section['SectionComponents'][0]['MeetingPattern_id'],
         'field_section_number' => [
-          'value'  => $section["CourseSection"],
+          'value' => $section["CourseSection"],
         ],
         'field_section_title' => [
-          'value'  => $section["Title"],
+          'value' => $section["Title"],
         ],
-        'field_course_semester' =>$section["AcademicPeriod_id"],
+        'field_course_semester' => $section["AcademicPeriod_id"],
       ];
-      if ( array_key_exists('InstructorRoleAssignments',$section)){
+      if (array_key_exists('InstructorRoleAssignments', $section)) {
         $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_section_instructors'] = $this->getSectionInstructors($section['InstructorRoleAssignments']);
       }
-     }
-
+      if (array_key_exists('SectionComponents', $section)) {
+        $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_room_schedules'] = $section['SectionComponents'];
+      }
+    }
     return $fields;
+  }
+
+  /**
+   * Gets the room schedule paragraph ids
+   *
+   * @param object $roomSchedule
+   *  the room schedule object
+   *
+   * @return array
+   *  an array of the room schedule paragraph ids
+   *
+   * @throws
+   */
+  public function getRoomSchedules($components):array{////[0]['MeetingPattern_id']
+
+    $schedules = [];
+
+    foreach ($components as $component) {
+      if (array_key_exists('MeetingPattern_id',$component)){
+        $schedules[] = $this->createRoomSchedule($component['MeetingPattern_id']);
+      }
+    }
+
+    return $schedules;
   }
 
   /**
@@ -656,7 +681,7 @@ class Courses {
       if (empty($section['field_room_schedules'])){
         unset($section['field_room_schedules']);
       }else{ //create the room schedule paragraphs
-        $section['field_room_schedules'] = [$this->createRoomSchedule($section['field_room_schedules'])];
+        $section['field_room_schedules'] = $this->getRoomSchedules($section['field_room_schedules']);
       }
       //if we need to create and assign a new one or use this
       $paragraph = $entityTools->createContent($section,'paragraph');
