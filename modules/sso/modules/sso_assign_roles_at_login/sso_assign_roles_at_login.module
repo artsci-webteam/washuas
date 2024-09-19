@@ -1,0 +1,75 @@
+<?php
+
+/**
+ * @file
+ * Hooks for SSO Assign Roles at Login module.
+ *
+ */
+
+use Drupal\user\UserInterface;
+
+
+
+/**
+ * Implements hook_form_alter().
+ */
+function sso_assign_roles_at_login_form_alter(&$form, \Drupal\Core\Form\FormStateInterface $form_state, $form_id) {
+  if($form_id == 'sso_assign_roles_at_login_settings') {
+    $form['#attached']['library'][] = 'sso_assign_roles_at_login/admin';
+  }
+}
+
+
+
+/**
+ * Hook to alter a Drupal user account after SAML authentication.
+ *
+ * Allows other modules to change fields or properties on the Drupal account
+ * after a user logged in through SimpleSAMLphp. This can be used to add
+ * map additional SAML attributes to Drupal user profile fields.
+ *
+ * @param \Drupal\user\UserInterface $account
+ *   The Drupal account that can be altered.
+ * @param array $attributes
+ *   The SimpleSAMLphp attributes for this user.
+ *
+ * @return \Drupal\user\UserInterface|bool
+ *   The altered Drupal account or FALSE if nothing was changed.
+ */
+
+function sso_assign_roles_at_login_simplesamlphp_auth_user_attributes(UserInterface $account, $attributes) {
+  $sso_login_config_settings = \Drupal::config('sso_assign_roles_at_login.settings')->getRawData();
+  $simplesamlphp_auth_config_mail_attribute = \Drupal::config('simplesamlphp_auth.settings')->get('mail_attr');
+  $host = \Drupal::request()->server->get('SSL_SERVER_S_DN_CN');
+  $email = $attributes[$simplesamlphp_auth_config_mail_attribute][0];
+
+  // Apply research only config to research environment
+  foreach ($sso_login_config_settings as $config_roles => $config_assigned_emails) {
+    $research_server = str_starts_with($host, 'research');
+    if ($research_server) {
+      $role = explode("_sso_login_emails_research", $config_roles, 2)[0];
+      if (str_contains($config_roles, '_research')) {
+        if (is_array($config_assigned_emails) && !empty($config_assigned_emails)) {
+          if (in_array($email, $config_assigned_emails)) {
+            $account->addRole($role);
+          }
+        }
+      }
+    }
+    // Apply artsci only config to artsci environment
+    else {
+      if (str_starts_with($host, 'artsci')) {
+        $role = explode("_sso_login_emails_artsci", $config_roles, 2)[0];
+        if (str_contains($config_roles, '_artsci')) {
+          if (is_array($config_assigned_emails) && !empty($config_assigned_emails)) {
+            if (in_array($email, $config_assigned_emails)) {
+              $account->addRole($role);
+            }
+          }
+        }
+      }
+    }
+  }
+    return $account;
+}
+
