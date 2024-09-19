@@ -371,7 +371,7 @@ class Courses {
         'field_course_sections'  => $sections,
       ];
       if (array_key_exists('CourseTags',$course)){
-        $fields['field_course_attributes'] = $this->getCourseAttributes($course['CourseTags']);
+        $fields['field_course_attributes'] =  $this->getCourseAttributes($course['CourseTags']);
       }
       if (array_key_exists('PeriodsOffered',$course)) {
         $fields['field_course_frequency'] = $this->getPeriodsOffered($course['PeriodsOffered']);
@@ -563,7 +563,7 @@ class Courses {
       //if we don't have an associated unit we don't need this course, move on
       if ( empty($unit) ) continue;
 
-      $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][] = [
+      $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]] = [
         'type' => 'course_sections',
         'field_section_course_id' => [
           'value'  => $section["Course_id"],
@@ -571,9 +571,7 @@ class Courses {
         'field_section_dept_code' => [
           'value'  => $unit,
         ],
-        'field_section_instructors' => [
-          'value'  => $this->getSectionInstructors($section['InstructorRoleAssignments']),
-        ],
+        'field_room_schedules' => $section['SectionComponents'][0]['MeetingPattern_id'],
         'field_section_number' => [
           'value'  => $section["CourseSection"],
         ],
@@ -582,9 +580,61 @@ class Courses {
         ],
         'field_course_semester' =>$section["AcademicPeriod_id"],
       ];
-    }
+      if ( array_key_exists('InstructorRoleAssignments',$section)){
+        $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_section_instructors'] = $this->getSectionInstructors($section['InstructorRoleAssignments']);
+      }
+     }
 
     return $fields;
+  }
+
+  /**
+   * Creates the room schedule paragraphs and returns an array of their ids
+   *
+   * @param string $schedule
+   *  the room schedule object
+   *
+   * @return array
+   *  an array of the room schedule paragraph ids
+   *
+   * @throws
+   */
+  public function createRoomSchedule($schedule)
+  {
+    //if there isn't a schedule return a empty array
+    if (empty($schedule)){
+      return [];
+    }
+    $scheduleParts = explode('_',$schedule);
+    $days = $scheduleParts[0];
+
+    //reformat the dateTime and clear out any values of 12:00AM
+    $startTime = date('h:i A', strtotime($scheduleParts[1]));
+    $startTime = ($startTime == "12:00 AM") ? "": $startTime;
+
+    //reformat the dateTime and clear out any values of 12:00AM
+    $endTime = date('h:i A', strtotime($scheduleParts[2])); //Endtime - time needs to be lowercase >:|
+    $endTime = ($startTime == "12:00 AM") ? "": $endTime;
+
+    //build the room_schedule paragraph
+    $fields = [
+      'type' => 'room_schedule',
+      'field_day' => [
+        'value'  => $days,
+      ],
+      'field_end_time' => [
+        'value'  => $endTime,
+      ],
+      'field_start_time' => [
+        'value'  => $startTime,
+      ],
+    ];
+    $paragraph = \Drupal::service('washuas_wucrsl.entitytools')->createContent($fields,'paragraph');
+
+    return [
+      'target_id' => $paragraph->id(),
+      'target_revision_id' => $paragraph->getRevisionId(),
+    ];
   }
 
   public function getNeededAcademicUnit(array $units):string{
@@ -602,7 +652,12 @@ class Courses {
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
 
     foreach ($sections as $section){
-      //get the semester if it exists, this returns false so we'll use that to determine
+      //if the section is empty then unset it
+      if (empty($section['field_room_schedules'])){
+        unset($section['field_room_schedules']);
+      }else{ //create the room schedule paragraphs
+        $section['field_room_schedules'] = [$this->createRoomSchedule($section['field_room_schedules'])];
+      }
       //if we need to create and assign a new one or use this
       $paragraph = $entityTools->createContent($section,'paragraph');
 
