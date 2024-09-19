@@ -1,7 +1,0 @@
-.light-text .messages__content,
-.light-text .messages__header {
-  color: #fff !important;
-}
-.light-text .messages__header:before {
-  background-color: #fff !important;
-}

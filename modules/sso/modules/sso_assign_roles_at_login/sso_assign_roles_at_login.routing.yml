@@ -1,7 +1,0 @@
-system.admin_config_sso_assign_roles_at_login:
-  path: '/admin/config/washuas/sso'
-  defaults:
-    _form: '\Drupal\sso_assign_roles_at_login\Form\SsoAssignRolesAtLoginSettingsForm'
-    _title: 'SSO Assign Roles at Login Settings'
-  requirements:
-    _permission: 'administer site configuration'
