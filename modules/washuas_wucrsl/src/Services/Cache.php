@@ -32,22 +32,18 @@ class Cache {
   /**
    * This pulls data from cache
    *
-   * @param bool $cacheData
-   *  indicates if we'll attempt to pull data from cache
    * @param string $cacheStorage
    *  where we will store the cachedData
-   * @param string $neededIndex
-   *  an optional index to check for to see if we can pull from cache or need fresh soap data
    *
    * @return array
    *  the results stored in cache
    *
    * @throws
    */
-  function getDataFromCache($cacheStorage){
+  function getDataFromCache(string $cacheStorage):array{
     //if we're not set to use cache then return null
     if ( !$this->useCache){
-      return null;
+      return [];
     }
 
     //check the single page cache
@@ -62,27 +58,21 @@ class Cache {
     $cache = \Drupal::cache('data')->get($cacheStorage);
 
     //return the cached data if we have it or a null
-    return ( !empty($cache->data) ) ? $cache->data : null ;
+    return ( !empty($cache->data) ) ? $cache->data : [] ;
   }
 
   /**
    * This saves data to cache
    *
-   * @param bool $cacheData
-   *  indicates if we'll attempt to pull data from cache
    * @param string $cacheStorage
    *  the soap function we will call
    * @param array $data
    *  an optional index to check for to see if we can pull from cache or need fresh soap data
-   * @param timestamp $expiration
-   *  the time at which cache expires
-   * @param array $tags
-   *   the time at which cache expires
    * @return void
    *
    * @throws
    */
-  function saveDataToCache($cacheStorage,$data):void{
+  function saveDataToCache(string $cacheStorage,array $data):void{
     // cache the data
     if($this->useCache){
       \Drupal::cache('data')->set($cacheStorage, $data,strtotime('midnight') + (48*60*60),["wucrsl"]);

@@ -11,6 +11,8 @@ use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\washuas\Services\EntityTools;
 use Drupal\washuas_wucrsl\Services\Soap;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Drupal\Core\Url;
+use Drupal\Core\Link;
 
 
 /**
@@ -73,6 +75,16 @@ class WashuasWucrslAcademicUnitsForm extends ConfigFormBase {
 
     //pull the configuration for this form
     $config = $this->config(static::SETTINGS);
+
+
+    if (empty($config->get('wucrsl_token_url'))) {
+      $aText = 'In order to set units you must first save the api settings at the below link.';
+      $aURL = new Url('washuas_wucrsl.settings');
+      $form['wucursl_settings_link']['#markup'] = Link::fromTextAndUrl($aText,$aURL)->toString();
+      $form['actions']['submit']['#attributes']['disabled']  = 'disabled';
+
+      return $form;
+    }
 
     $form['wucrsl_academic_units'] = [
       '#type' => 'checkboxes',

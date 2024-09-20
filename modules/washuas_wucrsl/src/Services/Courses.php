@@ -31,6 +31,12 @@ class Courses {
     //$this->units = $this->getAcademicUnits();
   }
 
+  /**
+   * Returns a list of academic unit options for the academic unit form of options pulled from the mulesoft api
+   *
+   * @return array
+   *  the semesters for which we'll run the import
+   */
   public function getAcademicUnitOptions(){
     //initialize our return array
     $options = [];
@@ -51,6 +57,13 @@ class Courses {
 
     return $options;
   }
+
+  /**
+   * Returns an array of data regarding the current semester
+   *
+   * @return array
+   *  the semesters for which we'll run the import
+   */
   public function getCurrentSemester(){
     $now = new \DateTime('now');
     $month = $now->format('m');
@@ -69,6 +82,7 @@ class Courses {
     }
     return ["semester"=>$semester,"year"=>$year,"full"=>$semester.'_'.$year];
   }
+
   /**
    * Gets the semesters on for which we should import data
    *
@@ -95,7 +109,15 @@ class Courses {
     return $semesters;
   }
 
-  function getSemesterTermsToDisplay() {
+  /**
+   * This gets the active semesters we want to display on the site, it's used for the landing page
+   *
+   * @return array
+   * a comma seperated list of periods this is offered in
+   *
+   * @throws
+   */
+  function getSemesterTermsToDisplay():array {
 
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
 
@@ -140,6 +162,7 @@ class Courses {
     $semesters["default"] = $defaultTerm ?? null;
     return $semesters;
   }
+
   /**
    * Gets the semesters for the current, previous, and next year
    *
@@ -189,11 +212,16 @@ class Courses {
    * @param string $semester
    *    the semester to run, if it's null we assign them
    *
+   * @param array $units
+   * the academic units we will process
+   *
+   * @param bool $cron
+   * this implies this is being ran from cron and makes assumptions accordingly
    * @return array
    *
    * @throws
    */
-  function getCoursesBatch($semester=null,$units=[],$cron=false):array {
+  function getCoursesBatch(string $semester='',$units=[],$cron=false):array {
     if ($cron){
       $title = 'Courses Import';
       $units = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
@@ -229,7 +257,30 @@ class Courses {
     return $batch_builder->toArray();
   }
 
-  function createCourseBatches($batch_builder,$semesterTerm,$semester,$courses,$unit):void{
+  /**
+   * This creates the courses batches that will be added during the wucrsl cron ron and processed during general cron
+   *
+   * @param $batch_builder
+   *  the batch we will add operations to
+   *
+   * @param string $semesterTerm
+   *   the taxonomy term id for the semester we will process
+   *
+   * @param string $semester
+   * the semester id that these courses are for
+   *
+   * @param array $courses
+   * the list of courses we will process in this batch, including their sections
+   *
+   * @param string $unit
+   * the academic unit id for these courses
+   *
+   * @return string
+   * a comma seperated list of periods this is offered in
+   *
+   * @throws
+   */
+  function createCourseBatches($batch_builder,string $semesterTerm,string $semester,array $courses,string $unit):void{
     //add call to pull the data from cache if it exists
     $cache = \Drupal::service('washuas_wucrsl.cache');
 
@@ -518,7 +569,7 @@ class Courses {
    *
    * @throws
    */
-  public function getCurriculumCourse(array $courseIDs):\Drupal\Core\Entity\EntityInterface{
+  public function getCurriculumCourse(array $courseIDs){
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
 
     //if there aren't any course ids then return null
@@ -838,12 +889,12 @@ class Courses {
    * @param string $courseNum
    *  the soap objects for course attributes
    *
-   * @return \Drupal\taxonomy\Entity\Term|FALSE
+   * @return \Drupal\taxonomy\Entity\Term|array
    *  the taxonomy term for course level
    *
    * @throws
    */
-  public function getCourseLevel(string $courseNum):\Drupal\taxonomy\Entity\Term {
+  public function getCourseLevel(string $courseNum) {
     // Course Level is based on the first digit of the Course Code number
     switch(substr($courseNum, 0, 1)){
       case '5':

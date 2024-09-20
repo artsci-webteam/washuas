@@ -49,45 +49,65 @@ class Mule {
     $this->clientSecret = $this->config->get('wucrsl_client_secret');
   }
 
+  /**
+   * This requests the access token we need to supply to all of our api requests
+   *
+   * @param string $clientID
+   *  the client id we use to connect to mulesoft
+   *
+   * @param string $clientSecret
+   *  the client secret we use to connect to mulesoft
+   *
+   * @return string
+   *  the access token to use for api calls
+   *
+   */
   public function getAccessToken($clientID,$clientSecret):string{
     $url = $this->config->get('wucrsl_token_url');
     if ( empty($url)){
       return '';
     }
-    $response = \Drupal::httpClient()
-      ->post($url, [
-      'form_params' => [
-        'grant_type' => 'client_credentials',
-        'client_id' => $clientID,
-        'client_secret' => $clientSecret,
-      ],
-      'headers' => [
-        'Content-Type' => 'application/x-www-form-urlencoded',
-      ],
-    ]);
+    try {
+      $response = \Drupal::httpClient()->post($url, [
+        'form_params' => [
+          'grant_type' => 'client_credentials',
+          'client_id' => $clientID,
+          'client_secret' => $clientSecret,
+        ],
+        'headers' => [
+          'Content-Type' => 'application/x-www-form-urlencoded',
+        ],
+      ]);
 
-    $data = json_decode((string) $response->getBody(), TRUE);
+      $data = json_decode((string) $response->getBody(), TRUE);
 
-    return $data['access_token'] ?? '';
+      return $data['access_token'];
+    }
+    catch (\Exception $e) {
+      $message = 'There was an issue connecting to the mulesoft api token request.';
+      $this->loggerFactory->get('washuas_wucrsl')->error($message.$url.' '.$e->getMessage());
+      $this->messenger->addError($message);
+      return '';
+    }
   }
 
   /**
-   * Gets the soap parameters that we will use to make our calls
+   * returns an array of the api parameters that we will use to make our calls
    *
-   * @param string $env
+   * @param string $api
    *  the environment used to pull configuration from
    *
    * @param string $function
    *  the soap function we will be calling
    *
-   * @param string $semester
-   *  the semester for which we'll pull the data
+   * @param array $query
+   *   the query we will send along with the parameters to filter data
    *
-   * @return array $query
+   * @return array
    *  the parameters we will use for soap calls
    *
    */
-  public function getAPIParameters($api,$function,$query=[]): array {
+  public function getAPIParameters(string $api,string $function,array $query=[]): array {
     //this will be our return values($api,$function,$semester,$unit)
     $token = $this->getAccessToken($this->clientID,$this->clientSecret);
     $timeStamp = new \DateTime('now');
@@ -105,21 +125,25 @@ class Mule {
 
 
   /**
-   * This executes soap functions
+   * This executes api requests
    *
    * @param string $url
    *  the url to send the soap request to
+   * @param string $api
+   *   the api we are calling from the url
+   * @param string $function
+   * the function we are calling from the api
+   * @param string $key
+   *    the index at which the data we actually want is located
    * @param array $parameters
    *  the parameters for the request
-   * @param string $soapFunction
-   *  the soap function we will call
    *
    * @return array
    *  the results returned by the soap function
    *
    * @throws
    */
-  function executeFunction($url, $api, $function,$key, array $parameters) {
+  function executeFunction(string $url,string $api,string $function,string $key, array $parameters) {
     //if we're here then it's time for us to use some SOAP
     $apiURL = $url.$api."/".$function;
     try {
@@ -140,8 +164,8 @@ class Mule {
       return $returnData;
     }
     catch (\Exception $e) {
-      $message = 'MuleSoft API Connection Error at '.$apiURL.' '.$e->getMessage();
-      $this->loggerFactory->get('washuas_wucrsl')->error($message);
+      $message = 'There was an issue connecting to the mulesoft api.';
+      $this->loggerFactory->get('washuas_wucrsl')->error($message.$apiURL.' '.$e->getMessage());
       $this->messenger->addError($message);
       return null;
     }

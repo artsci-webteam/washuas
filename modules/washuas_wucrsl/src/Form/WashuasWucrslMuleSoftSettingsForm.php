@@ -102,7 +102,7 @@ class WashuasWucrslMuleSoftSettingsForm extends ConfigFormBase {
       '#default_value' => $config->get('wucrsl_request_url') ?? 'https://test.wuapi.wustl.edu/v1/',
       '#size' => 60,
       '#maxlength' => 256,
-      '#required' => FALSE,
+      '#required' => TRUE,
     );
 
     $form['wucrsl_client_id'] = array(
@@ -112,7 +112,7 @@ class WashuasWucrslMuleSoftSettingsForm extends ConfigFormBase {
       '#default_value' => $_ENV['COURSES_CLIENT_ID'] ?? 'client id',
       '#size' => 60,
       '#maxlength' => 256,
-      '#required' => FALSE,
+      '#required' => TRUE,
       '#attributes' => [
         'readonly' => 'readonly',
       ],
@@ -126,7 +126,7 @@ class WashuasWucrslMuleSoftSettingsForm extends ConfigFormBase {
       '#default_value' => $_ENV['COURSES_CLIENT_SECRET'] ?? 'client secret',
       '#size' => 60,
       '#maxlength' => 256,
-      '#required' => FALSE,
+      '#required' => TRUE,
       '#attributes' => [
         'readonly' => 'readonly',
       ],
