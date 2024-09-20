@@ -262,13 +262,45 @@ class Courses {
       }
     }
   }
-  function getPeriodsOffered($periodsOffered){
+
+  /**
+   * Creates and saves the new course node
+   *
+   * @param array $periodsOffered
+   *  a list of all the periods in which the course is offered
+   *
+   * @return string
+   * a comma seperated list of periods this is offered in
+   *
+   * @throws
+   */
+  function getPeriodsOffered(array $periodsOffered):string{
     $frequency = '';
     foreach($periodsOffered as $period){
       $frequency = (empty($frequency))?$period['AcademicPeriodsOfferedType_id']:','.$period['AcademicPeriodsOfferedType_id'];
     }
     return $frequency;
   }
+
+  /**
+   * Creates and saves the new course node
+   *
+   * @param array $course
+   *  the course array to process
+   *
+   * @param string $semester
+   *  the semester id for this course ex.Fall_2024
+   *
+   * @param string $semesterTerm
+   *   the taxonomy term for the semester
+   *
+   * @param array $context
+   *    the context array passed to the function by batch processing
+   *
+   * @return void
+   *
+   * @throws
+   */
   function processCourse($course,$semester,$semesterTerm, &$context):void{
     //If there is already a course then we will update
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
