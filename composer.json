@@ -10,5 +10,22 @@
             "role": "Maintainer"
         }
     ],
-    "homepage": "https://github.com/artsci-webteam/washuas"
+    "homepage": "https://github.com/artsci-webteam/washuas",
+    "config": {
+        "allow-plugins": {
+            "simplesamlphp/composer-module-installer": true
+        }
+    },
+    "require": {
+        "drupal/simplesamlphp_auth": "^4.0",
+        "drupal/core": "^9.4 || ^10"
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "scripts/symlink-simplesaml-config.sh"
+        ],
+        "post-update-cmd": [
+            "scripts/symlink-simplesaml-config.sh"
+        ]
+    }
 }
