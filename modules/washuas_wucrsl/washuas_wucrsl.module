@@ -13,7 +13,7 @@ use Drupal\Core\Form\FormState;
  */
 function washuas_wucrsl_cron() {
   //get the batch that we will process
-  $batch = \Drupal::service('washuas_wucrsl.courses')->getCoursesBatch(null,[], true);
+  $batch = \Drupal::service('washuas_wucrsl.courses')->getCoursesBatch('',[], true);
   //get the queue that we will use to process it
   $queue = \Drupal::service('queue')->get('courses_cron_import');
   //add the batch to the queue where it'll be processed
