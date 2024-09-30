@@ -243,7 +243,7 @@ class Courses {
     foreach( $semesters as $semester ) {
       $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
       $semesterTerm = $entityTools->createOrGetTerm('semester', $semester);
-      $sections = $this->executeMuleRequest('academic','sections',['AcademicPeriod_id' => $semester],'sections',true,$semester);
+      $sections = $this->executeMuleRequest('academic','sections',['AcademicPeriod_id' => $semester,'count'=>200],'sections',true,$semester);
       $sections = $this->createSections($sections,$semesterTerm);
       //if there aren't sections to process then continue
       if (empty($sections)) continue;
@@ -293,7 +293,7 @@ class Courses {
       //we are going to pull down courses by sending the course Ids processed in the sections
       //in batches of 50 to the courses api. Then we will get and return the course fields array, along with the course sections
       //these are then sent over to the batch api for later cron processing
-      $batchCount = 50;
+      $batchCount = 150;
       for ($i=0;$i<count($courses);$i+=$batchCount){
         $batch = array_slice($courses,$i,$batchCount,true);
         $courseIDs = implode(',',array_keys($batch));
