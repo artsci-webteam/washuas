@@ -1,0 +1,16 @@
+services:
+  washuas_courses.cache:
+    class: Drupal\washuas_courses\Services\Cache
+    arguments: []
+  washuas_courses.courses:
+    class: Drupal\washuas_courses\Services\Courses
+    arguments: []
+  washuas_courses.soap:
+    class: Drupal\washuas_courses\Services\Soap
+    arguments: ['@logger.factory', '@messenger']
+  washuas_courses.mule:
+    class: Drupal\washuas_courses\Services\Mule
+    arguments: ['@logger.factory', '@messenger']
+  washuas_courses.entitytools:
+    class: Drupal\washuas\Services\EntityTools
+    arguments: ['@entity_type.manager', '@logger.factory', '@messenger']

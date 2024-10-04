@@ -1,0 +1,28 @@
+system.admin_config_washuas_courses:
+  path: '/admin/config/washuas/courses'
+  defaults:
+    _controller: '\Drupal\system\Controller\SystemController::systemAdminMenuBlockPage'
+    _title: 'WashU A&S Courses'
+  requirements:
+    _permission: 'administer basic site settings'
+washuas_courses.settings:
+  path: '/admin/config/washuas/courses/api/settings'
+  defaults:
+    _form: '\Drupal\washuas_courses\Form\WashuasCoursesMuleSoftSettingsForm'
+    _title: 'Courses API Settings'
+  requirements:
+    _permission: 'administer site configuration'
+washuas_courses.units:
+  path: '/admin/config/washuas/courses/academic_units'
+  defaults:
+    _form: '\Drupal\washuas_courses\Form\WashuasCoursesAcademicUnitsForm'
+    _title: 'Academic Units to import courses from.'
+  requirements:
+    _permission: 'administer site configuration'
+washuas_courses.manual:
+  path: '/admin/config/washuas/courses/manual_import'
+  defaults:
+    _form: '\Drupal\washuas_courses\Form\WashuasCoursesImportForm'
+    _title: 'Manual Courses Import'
+  requirements:
+    _permission: 'administer site configuration'

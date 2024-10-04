@@ -1,0 +1,20 @@
+system.admin_config_washuas_courses:
+  title: 'WashU A&S Courses'
+  parent: system.admin_config_washuas
+  route_name: system.admin_config_washuas_courses
+  weight: -100
+washuas_courses.settings:
+  title: API Settings
+  parent: system.admin_config_washuas_courses
+  route_name: washuas_courses.settings
+  weight: 9
+washuas_courses.manual:
+  title: Manual Import
+  parent: system.admin_config_washuas_courses
+  route_name: washuas_courses.manual
+  weight: 10
+washuas_courses.units:
+  title: Academic Units
+  parent: system.admin_config_washuas_courses
+  route_name: washuas_courses.units
+  weight: 10
