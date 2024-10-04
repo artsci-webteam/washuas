@@ -41,7 +41,6 @@ class Courses {
     //initialize our return array
     $options = [];
     //get the soap /
-    //@todo should we always call this ??
     $apiUnits = $this->executeMuleRequest(false,'organization','academicunits',[],'organizations',true);
     //get the active configuration
     $configUnits = \Drupal::service('config.factory')->get(static::SETTINGS)->get('courses_academic_units');

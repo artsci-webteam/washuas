@@ -492,7 +492,6 @@ class Courses {
     $params = [];
 
     //pull the department from the configuration or set the default to L
-    //@todo change the default department and school?
     //Set the environment parameters based on the selected environment of the configuration screen
     $params['ApplicationToken'] = $this->config->get('wucrsl_'.$env.'_soap_client_id');
     $params['ApplicationPwd'] = $this->config->get('wucrsl_'.$env.'_soap_client_pw');
@@ -503,7 +502,6 @@ class Courses {
       case "GetCurriculumbyDeptbyASemester":
         $params['DeptCd'] = $department;
         $params['SchoolCd'] = static::school;
-        //@todo update the below to instead use our function to grab the current semester
         $params['SortSemester'] = empty($semester) ? (int)$current : (int)$semester;
         break;
       case "GetDepartments":
