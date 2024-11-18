@@ -1,0 +1,9 @@
+name: 'WashU A&S SSO Assign Roles at Login'
+type: module
+description: 'Used to to assign roles to specified emails when authenticating via sso'
+package: WashU
+core_version_requirement: ^10
+dependencies:
+  - washuas
+  - simplesamlphp_auth
+  - externalauth

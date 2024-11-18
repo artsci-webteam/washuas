@@ -36,28 +36,28 @@ class WashuasWucrslImportForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state) {
     $courses = \Drupal::service('washuas_wucrsl.courses');
     //config returns everything with 0 values for non selected options, this removes those
-    $departments = $courses->getDepartmentOptions('config');
+    $units = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');;
 
-    if (empty($departments)) {
-      $aText = 'In order to import courses you must first set the departments. Click here to set the departments';
-      $aURL = new Url('washuas_wucrsl.departments');
-      $form['wucursl_departments_link']['#markup'] = Link::fromTextAndUrl($aText,$aURL)->toString();
+    if (empty($units)) {
+      $aText = 'In order to import courses you must first set the academic units. Click here to set the academic units';
+      $aURL = new Url('washuas_wucrsl.units');
+      $form['wucursl_units_link']['#markup'] = Link::fromTextAndUrl($aText,$aURL)->toString();
       $form['actions']['submit']['#attributes']['disabled']  = 'disabled';
 
       return $form;
     }
 
-    $form['departments'] = [
+    $form['units'] = [
       '#type' => 'select',
-      '#title' => $this->t('Department to import'),
-      '#options' => $departments,
+      '#title' => $this->t('Academic Unit to import'),
+      '#options' => $units,
     ];
 
     $form['semester'] = [
       '#type' => 'select',
       '#title' => $this->t('Semester To Import'),
       '#options' => $courses->getManualImportSemesters(),
-      '#default_value' => $courses->getCurrentSemester()["sort"],
+      '#default_value' => $courses->getCurrentSemester()["full"],
     ];
 
     $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Import Courses')];
@@ -72,10 +72,10 @@ class WashuasWucrslImportForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $semester = $form_state->getValue('semester');
-    $deptCode = $form_state->getValue('departments');
-    $deptName = $form_state->getCompleteForm()['departments']['#options'][$deptCode];
-    $departments[$deptCode] = $deptName;
-    $batch = \Drupal::service('washuas_wucrsl.courses')->getCoursesBatch($semester,$departments);
+    $deptCode = $form_state->getValue('units');
+    $deptName = $form_state->getCompleteForm()['units']['#options'][$deptCode];
+    $units[$deptCode] = $deptName;
+    $batch = \Drupal::service('washuas_wucrsl.courses')->getCoursesBatch($semester,$units);
     batch_set($batch);
   }
 }

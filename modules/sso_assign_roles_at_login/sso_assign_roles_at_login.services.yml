@@ -1,0 +1,4 @@
+services:
+  sso_assign_roles_at_login.entitytools:
+    class: Drupal\washuas\Services\EntityTools
+    arguments: ['@entity_type.manager', '@logger.factory', '@messenger']

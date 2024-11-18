@@ -1,0 +1,4 @@
+admin:
+  css:
+    theme:
+      css/sso_assign_roles_at_login.css: {}
