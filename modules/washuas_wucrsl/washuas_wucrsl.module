@@ -18,6 +18,7 @@ function washuas_wucrsl_cron() {
   $queue = \Drupal::service('queue')->get('courses_cron_import');
   //add the batch to the queue where it'll be processed
   $queue->createItem($batch);
+  //
 }
 
 /**

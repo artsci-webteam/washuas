@@ -41,7 +41,7 @@ class Courses {
     //initialize our return array
     $options = [];
     //get the soap /
-    $apiUnits = $this->executeMuleRequest(false,'organization','academicunits',[],'organizations',true);
+    $apiUnits = $this->executeMuleRequest(null,'organization','academicunits',[],'organizations',true);
     //get the active configuration
     $configUnits = \Drupal::service('config.factory')->get(static::SETTINGS)->get('courses_academic_units');
     foreach ( $apiUnits as $unit){
@@ -220,7 +220,7 @@ class Courses {
    *
    * @throws
    */
-  function getCoursesBatch(string $semester='',$units=[],$cron=false):array {
+  function getSectionPullBatches(string $semester='',$units=[],$cron=false):array {
     if ($cron){
       $title = 'Courses Import';
       $units = \Drupal::service('config.factory')->get(static::SETTINGS)->get('courses_academic_units');
@@ -230,80 +230,21 @@ class Courses {
       $semesters = [$semester];
     }
 
-    //initialize courses batch
-    $operations = [];
-    $batch_builder = $this->initCoursesBatchBuilder($title);
-
     //if the academic units are empty then there isn't anything to do, set a message and return
     if (empty($units)){
       $this->addMessageAndLog('The departments must be selected in order to run the import. Please set the departments.');
-      return $batch_builder->toArray();
+      return [];
     }
+
+    //initialize the batches we will return
+    $batch_builder = $this->initSectionsBatchBuilder();
+    //create the section api batches for each semester
     foreach( $semesters as $semester ) {
       $entityTools = \Drupal::service('washuas_courses.entitytools');
-      $semesterTerm = $entityTools->createOrGetTerm('semester', $semester);
-      $sections = $this->executeMuleRequest(true,'academic','sections',['AcademicPeriod_id' => $semester],'sections',true,$semester);
+      $sectionBatch = $this->executeMuleRequest($batch_builder,'academic','sections',['AcademicPeriod_id' => $semester],'sections',true,$semester);
     }
 
-    //batch set and batch process calls go here
     return $batch_builder->toArray();
-  }
-
-  /**
-   * This creates the courses batches that will be added during the courses cron run and processed during general cron
-   *
-   * @param $batch_builder
-   *  the batch we will add operations to
-   *
-   * @param string $semesterTerm
-   *   the taxonomy term id for the semester we will process
-   *
-   * @param string $semester
-   * the semester id that these courses are for
-   *
-   * @param array $courses
-   * the list of courses we will process in this batch, including their sections
-   *
-   * @param string $unit
-   * the academic unit id for these courses
-   *
-   * @return string
-   * a comma seperated list of periods this is offered in
-   *
-   * @throws
-   */
-  function createCourseBatches($batch_builder,string $semesterTerm,string $semester,array $courses,string $unit):void{
-    //add call to pull the data from cache if it exists
-    $cache = \Drupal::service('washuas_courses.cache');
-
-    //we're going to save the courses to cache at using the unit and semester
-    $cacheName = 'washuas_courses_courses_'.$unit.'_'.$semesterTerm;
-    //attempt to pull from cache
-    $data = $cache->getDataFromCache($cacheName);
-    //if we don't have data cached pull it from the api
-    if (empty($data)) {
-      //we are going to pull down courses by sending the course Ids processed in the sections
-      //in batches of 50 to the courses api. Then we will get and return the course fields array, along with the course sections
-      //these are then sent over to the batch api for later cron processing
-      $batchCount = 50;
-      for ($i=0;$i<count($courses);$i+=$batchCount){
-        $batch = array_slice($courses,$i,$batchCount,true);
-        $courseIDs = implode(',',array_keys($batch));
-        $curriculum = $this->executeMuleRequest(false,'academic', 'courses', ['AcademicUnit_id' => $unit,'StudentCourse_id' => $courseIDs],'courses');
-        //save the
-        foreach($curriculum as $course){
-          $data[$course['Course_id']] = $courses[$course['Course_id']];
-          $data[$course['Course_id']]['course'] = $course;
-          //add this semesters section to the process
-          $batch_builder->addOperation([$this, 'processCourse'], [$data[$course['Course_id']],$semester,$semesterTerm]);
-        }
-      }
-      $cache->saveDataToCache($cacheName,$data);
-    }else{ //if we have data cached then add it's operations
-      foreach($data as $courseID => $course){
-        $batch_builder->addOperation([$this, 'processCourse'], [$course,$semester,$semesterTerm]);
-      }
-    }
   }
 
   /**
@@ -331,11 +272,14 @@ class Courses {
    * @param array $course
    *  the course array to process
    *
+   * @param string $courseID
+   *   the courseID for the course
+   *
    * @param string $semester
    *  the semester id for this course ex.Fall_2024
    *
-   * @param string $semesterTerm
-   *   the taxonomy term for the semester
+   * @param string $unit
+   *   the academic unit that applies to this course
    *
    * @param array $context
    *    the context array passed to the function by batch processing
@@ -344,7 +288,10 @@ class Courses {
    *
    * @throws
    */
-  function processCourse($course,$semester,$semesterTerm, &$context):void{
+  function processCourse(array $curriculum,string $courseID,string $semester,string $unit,&$context):void{
+    //pull the associate course data from mulesoft as we only have sections at present
+    $course = $this->executeMuleRequest(null,'academic', 'courses', ['AcademicUnit_id' => $unit,'StudentCourse_id' => $courseID],'courses');
+
     //If there is already a course then we will update
     $entityTools = \Drupal::service('washuas_courses.entitytools');
     $unitName = $course['course']['AcademicUnits'][0]['AcademicUnit'];
@@ -354,7 +301,7 @@ class Courses {
       'type'=>'courses',
       'field_course_id' => $course['course']['Course_id'],
       'field_course_dept_code' => $course['course']['AcademicUnits'][0]['AcademicUnit_id'],
-      'field_course_semester' => $semesterTerm,
+      'field_course_semester' => $curriculum['semester'],
     ];
 
     //retrieve the existing nodes, but only if we have an existing taxonomy term as it's a filter
@@ -619,7 +566,7 @@ class Courses {
    *  the associated soap data pulled from the request or cache
    *
    */
-  function executeMuleRequest(bool $batch, string $api,string $method,array $query,string $dataKey,bool $useCache=false,string $cacheAppend=''):array {
+  function executeMuleRequest($builder, string $api,string $method,array $query,string $dataKey,bool $useCache=false,string $cacheAppend=''):array {
     $mule = \Drupal::service('washuas_courses.mule');
     //if for cache purposes we have something to append to the soap function we do it here
     $cache = \Drupal::service('washuas_courses.cache');
@@ -634,10 +581,11 @@ class Courses {
       //this retrieves the parameters for the api and the key for it's data in the array
       $parameters = $mule->getAPIParameters($api, $method, $query);
       //if we are retrieving academic units then we will not use batch processing at this time
-      if ( $batch ){
-        return $mule->getBatchRequests($url, $api, $method, $dataKey, $parameters);
-      }else{
+      if ( empty($builder) ){
         return $mule->executeFunction($url, $api, $method, $dataKey, $parameters);
+      }else{
+        $mule->setBatchRequests($builder,$url,$api,$method,$dataKey,$parameters);
+        return [];
       }
     }
     //save the data to cache
@@ -654,20 +602,25 @@ class Courses {
    * @param array $data
    *  the array for the section course data
    *
-   * @return array
-   *  an array of all the sections that are almost ready to create paragraphs for
+   * @return void
    *
    * @throws
    */
   public function processSections(array $data):void{
     $sections = $this->createSections($data);
+    $batch_builder = $this->initCoursesBatchBuilder('Mulesoft Courses Import');
 
     //$fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]
     foreach($sections as $unit=>$semesters){
       foreach($semesters as $semester => $courses){
-        $this->createCourseBatches($semester,$courses,$unit);
+        foreach($courses as $courseID =>$course){
+          $batch_builder->addOperation([$this, 'processCourse'], [$course,$courseID,$semester,$unit]);
+        }
       }
     }
+    $queue = \Drupal::service('queue')->get('courses_cron_import');
+    //add the batch to the queue where it'll be processed
+    $queue->createItem($batch_builder->toArray());
   }
 
   /**
@@ -681,36 +634,43 @@ class Courses {
    *
    * @throws
    */
-  public function createSections(array $sections):array{
+  public function createSections(array $data):array{
     $fields = [];
-    //it's possible that we only have one section, this handles that
-    foreach ($sections as $section) {
-      //pull the academic unit that we want this course for
-      $unit = (array_key_exists('SectionAcademicUnits', $section)) ? $this->getNeededAcademicUnit($section["SectionAcademicUnits"]) : NULL;
-      //if we don't have an associated unit we don't need this course, move on
-      if (empty($unit)) continue;
+    $entityTools = \Drupal::service('washuas_courses.entitytools');
 
-      $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]] = [
-        'type' => 'course_sections',
-        'field_section_course_id' => [
-          'value' => $section["Course_id"],
-        ],
-        'field_section_dept_code' => [
-          'value' => $unit,
-        ],
-        'field_section_number' => [
-          'value' => $section["CourseSection"],
-        ],
-        'field_section_title' => [
-          'value' => $section["Title"],
-        ],
-        'field_course_semester' => $section["AcademicPeriod_id"], //@todo we need to move this so that we get the actual term number
-      ];
-      if (array_key_exists('InstructorRoleAssignments', $section)) {
-        $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_section_instructors'] = $this->getSectionInstructors($section['InstructorRoleAssignments']);
-      }
-      if (array_key_exists('SectionComponents', $section)) {
-        $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_room_schedules'] = $section['SectionComponents'];
+    //the data basically comes over in pages with each page containing multiple sections
+    foreach ($data as $sections) {
+      foreach($sections as $section){
+        //pull the academic unit that we want this course for
+        $unit = (array_key_exists('SectionAcademicUnits', $section)) ? $this->getNeededAcademicUnit($section["SectionAcademicUnits"]) : NULL;
+        //if we don't have an associated unit we don't need this course, move on
+        if (empty($unit)) continue;
+        //get the sections semester term
+        $semester = $entityTools->createOrGetTerm('semester', $section["AcademicPeriod_id"]);
+        //set the semseter term for the course for later use
+        $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['semester'] = $semester;
+        $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]] = [
+          'type' => 'course_sections',
+          'field_section_course_id' => [
+            'value' => $section["Course_id"],
+          ],
+          'field_section_dept_code' => [
+            'value' => $unit,
+          ],
+          'field_section_number' => [
+            'value' => $section["CourseSection"],
+          ],
+          'field_section_title' => [
+            'value' => $section["Title"],
+          ],
+          'field_course_semester' => $semester, //@todo we need to move this so that we get the actual term number
+        ];
+        if (array_key_exists('InstructorRoleAssignments', $section)) {
+          $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_section_instructors'] = $this->getSectionInstructors($section['InstructorRoleAssignments']);
+        }
+        if (array_key_exists('SectionComponents', $section)) {
+          $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_room_schedules'] = $section['SectionComponents'];
+        }
       }
     }
     return $fields;
@@ -1051,13 +1011,13 @@ class Courses {
    *
    */
   public function processMuleBatches($success, $results, $operations):void{
-    foreach ($results['data'] as $function => $results) {
+    foreach ($results['data'] as $function => $data) {
       //condense the multiple arrays into one array
-      $data = array_merge($results['data'][$function]);
+      $dataArray = array_merge($data);
       //take an action depending on what the function is
       switch($function){
         case 'sections':
-          $sections = $this->processSections($data);
+          $sections = $this->processSections($dataArray);
           break;
         case 'courses':
           $test = 2;
@@ -1066,5 +1026,25 @@ class Courses {
           break;
       }
     }
+  }
+  /**
+   * Get an initialized batch builder with our settings
+   *
+   * @param string $title
+   *  the title to display while batch processing
+   *
+   * @return BatchBuilder
+   *  the initialized batch to add operations to and process
+   *
+   * @throws
+   */
+  public function initSectionsBatchBuilder():BatchBuilder{
+    return (new BatchBuilder())
+      ->setFile(\Drupal::service('module_handler')->getModule('washuas_courses')->getPath(). '/src/Services/Courses.php')
+      ->setTitle(t('Pulling Section API data from mulesoft in batches of 100.'))
+      ->setFinishCallback([\Drupal::service('washuas_courses.courses'), 'processMuleBatches'])
+      ->setInitMessage(t('The request is starting to import sections from mulesoft'))
+      ->setProgressMessage(t('Processed requests @current out of @total.'))
+      ->setErrorMessage(t('The sections api pull from mulesoft for has encountered an error'));
   }
 }

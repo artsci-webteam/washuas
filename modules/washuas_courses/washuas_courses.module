@@ -12,12 +12,8 @@ use Drupal\Core\Form\FormState;
  * Implements hook_cron().
  */
 function washuas_courses_cron() {
-  //get the batch that we will process
-  $batch = \Drupal::service('washuas_courses.courses')->getCoursesBatch('',[], true);
-  //get the queue that we will use to process it
-  $queue = \Drupal::service('queue')->get('courses_cron_import');
-  //add the batch to the queue where it'll be processed
-  $queue->createItem($batch);
+  $form_state = (new FormState())->setValues(['batch'=>true]);
+  \Drupal::formBuilder()->submitForm('Drupal\washuas_courses\Form\WashuasCoursesAPIForm', $form_state);
 }
 
 /**

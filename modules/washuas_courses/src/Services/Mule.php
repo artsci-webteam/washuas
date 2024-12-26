@@ -8,7 +8,6 @@ use Drupal\Core\Config\Config;
 use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Core\Batch\BatchBuilder;
-use Drupal\washuas_courses\Services\Courses;
 
 /**
  * Class Soap.
@@ -176,6 +175,8 @@ class Mule {
   /**
    * This returns the batch requests needed to pull data from the api
    *
+   * @param $builder
+   *  the batch builder we will use
    * @param string $url
    *  the url to send the soap request to
    * @param string $api
@@ -187,12 +188,12 @@ class Mule {
    * @param array $parameters
    *  the parameters for the request
    *
-   * @return array
+   * @return void
    *  the results returned by the soap function
    *
    * @throws
    */
-  function getBatchRequests(string $url,string $api,string $function,string $key, array $parameters):array {
+  function setBatchRequests($builder,string $url,string $api,string $function,string $key, array $parameters):void {
     //if we're here then it's time for us to use some SOAP
     $requestURL = $this->getRequestURL($url,$api,$function);
     //we will first just pull one record as we need the meta data to get the total record count
@@ -205,19 +206,21 @@ class Mule {
       $data = json_decode((string) $response->getBody(), TRUE);
       //get the total records we might receive from the meta
       $totalRecs = $data['meta']['TotalRecords'];
-      //create and return the api batches
-      return $this->createRequestBatches($totalRecs,$api,$url,$function,$key,$parameters);
+      //create the api batches
+      $this->createRequestBatches($builder,$totalRecs,$api,$url,$function,$key,$parameters);
     }
     catch (\Exception $e) {
       $message = 'There was an issue connecting to the mulesoft api.';
       $this->loggerFactory->get('washuas_courses')->error($message.$requestURL.' '.$e->getMessage());
       $this->messenger->addError($message);
-      return [];
     }
   }
 
   /**
    * this will create the api requests in batches of 100
+   *
+   * @param $builder
+   *   the batch builder we will use
    *
    * @param integer $totalRecs
    *  the number of records available in the api
@@ -237,41 +240,17 @@ class Mule {
    * @param array $parameters
    *    the api url we will be calling in our requests
    *
-   * @return array
-   *  the initialized batch to add operations to and process
+   * @return void
+   *  nothing to return the batches get added to the builder
    *
    * @throws
    */
-  public function createRequestBatches(int $totalRecs,string $api, string $url,string $function,string $key, array $parameters):array{
-    $batch_builder = $this->initRequestBatchBuilder($api,$function);
+  public function createRequestBatches($builder, int $totalRecs,string $api, string $url,string $function,string $key, array $parameters):void{
     //we're going to pull everything in by batches of 100
     $parameters['query']['count'] = 100;
     for ($i=0;$i<$totalRecs;$i+=$parameters['query']['count']){
-      $batch_builder->addOperation([$this, 'getRequestBatch'], [$api,$url,$function,$key,$parameters]);
+      $builder->addOperation([$this, 'getRequestBatch'], [$api,$url,$function,$key,$parameters]);
     }
-
-        //batch set and batch process calls go here
-    return $batch_builder->toArray();
-  }
-  /**
-   * Get an initialized batch builder with our settings
-   *
-   * @param string $title
-   *  the title to display while batch processing
-   *
-   * @return BatchBuilder
-   *  the initialized batch to add operations to and process
-   *
-   * @throws
-   */
-  public function initRequestBatchBuilder(string $api,string $function):BatchBuilder{
-    return (new BatchBuilder())
-      ->setFile(\Drupal::service('module_handler')->getModule('washuas_courses')->getPath(). '/src/Services/Courses.php')
-      ->setTitle(t('Mulesoft API requests to '.$api.'->'.$function))
-      ->setFinishCallback([Courses::class, 'processMuleBatches'])
-      ->setInitMessage(t('The request is starting to import from mulesoft for '.$api.'->'.$function))
-      ->setProgressMessage(t('Processed Mulesoft requests @current out of @total.'))
-      ->setErrorMessage(t('The request to mulesoft for '.$api.'->'.$function.' has encountered an error'));
   }
 
   /**
@@ -313,7 +292,7 @@ class Mule {
       //decode the data from the response
       $data = json_decode((string) $response->getBody(), TRUE);
       //store the data to our results
-      $context['results']['data'][$function] = $data[$key];
+      $context['results']['data'][$function][] = $data[$key];
       //this saves the next page url api to use if there is one
       $context['results']['nextRequestURL'] = $data["links"]["next"];
     }

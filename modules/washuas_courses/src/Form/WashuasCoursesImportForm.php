@@ -75,7 +75,7 @@ class WashuasCoursesImportForm extends FormBase {
     $deptCode = $form_state->getValue('units');
     $deptName = $form_state->getCompleteForm()['units']['#options'][$deptCode];
     $units[$deptCode] = $deptName;
-    $batch = \Drupal::service('washuas_courses.courses')->getCoursesBatch($semester,$units);
+    $batch = \Drupal::service('washuas_courses.courses')->getSectionPullBatches($semester,$units);
     batch_set($batch);
   }
 }
