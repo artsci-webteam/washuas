@@ -19,51 +19,44 @@ class Courses {
   protected $config;
 
 
-  protected $units;
+  protected $departments;
   protected $currentSemester;
-  protected $mule;
   const SETTINGS = 'washuas_wucrsl.settings';
   const school = 'L';
 
   public function __construct() {
     $this->config = \Drupal::config(static::SETTINGS);
     $this->currentSemester = $this->getCurrentSemester();
-    //$this->units = $this->getAcademicUnits();
+    $this->departments = $this->getDepartments();
   }
 
-  /**
-   * Returns a list of academic unit options for the academic unit form of options pulled from the mulesoft api
-   *
-   * @return array
-   *  the semesters for which we'll run the import
-   */
-  public function getAcademicUnitOptions(){
+  public function getDepartments(){
     //initialize our return array
-    $options = [];
-    //get the soap /
-    //@todo should we always call this ??
-    $apiUnits = $this->executeMuleRequest('organization','academicunits',[],'organizations',true);
+    $departments = [];
+    //get the soap departments
+    $soapDepartments = $this->executeSoapRequest('GetDepartments', $this->currentSemester["sort"])->Departments;
     //get the active configuration
-    $configUnits = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
-    foreach ( $apiUnits as $unit){
-      if ( isset($unit['Hierarchy']['SuperiorOrganization_id']) && ( $unit['Hierarchy']['SuperiorOrganization_id'] == 'AU100069' ) ) {
-        $unitName = $unit['OrganizationName'].'('.$unit['OrganizationCode'].')';
-        $options[$unit['OrganizationCode']] = $unitName;
+    $configDepartments = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_department');
+    foreach ( $soapDepartments as $department){
+      $deptName = $department->DepartmentName.'('.$department->DepartmentCode.')';
+      $departments['options'][$department->DepartmentCode] = $deptName;
+      //if this department code has a non-zero value in the configDepartments then add it's data to our loop array
+      if ( !empty($configDepartments[$department->DepartmentCode])){
+        $departments['loop'][$department->DepartmentCode] = $deptName;
+        $departments['config'][$department->DepartmentCode] = $deptName;
       }
     }
 
+    //if nothing is select then set these to null
+    $departments['loop'] = (empty($departments['loop']))? null : $departments['loop'];
+    $departments['config'] = (empty($departments['config']))? null : $departments['config'];
+
     //sort the options arrays
-    if ( !empty($options) ) asort($options);
+    if ( !empty($departments['options']) ) asort($departments['options']);
+    if ( !empty($departments['config']) ) asort($departments['config']);
 
-    return $options;
+    return $departments;
   }
-
-  /**
-   * Returns an array of data regarding the current semester
-   *
-   * @return array
-   *  the semesters for which we'll run the import
-   */
   public function getCurrentSemester(){
     $now = new \DateTime('now');
     $month = $now->format('m');
@@ -74,15 +67,13 @@ class Courses {
     $year = ( ( $month == 12 ) && ( $day >= 15 ) )? (intval($year) + 1) : $year;
 
     if ( ( $month < 5 ) || ( ( $month == 12 ) && ( $day >= 15 ) ) ){
-      $semester='Spring'; //if it's before may or it's dec and the 15th or after then we are in the spring semester, 02
-    } else if ( $month < 8 ) { //semester = 03
-      $semester='Summer'; //if it's between may and july then we are in the summer semester, 03
+      return ["semester"=>'SP',"year"=>$year,"sort"=>$year."02"]; //if it's before may or it's dec and the 15th or after then we are in the spring semester, 02
+    } else if ( $month >= 5 && $month < 8 ) { //semester = 03
+      return ["semester"=>'SU',"year"=>$year,"sort"=>$year."03"]; //if it's between may and july then we are in the summer semester, 03
     } else {
-      $semester='Fall'; //default, it's between aug and nov or in december before the 15th then we are in the fall semester, 05
+      return ["semester"=>'FL',"year"=>$year,"sort"=>$year."05"]; //default, it's between aug and nov or in december before the 15th then we are in the fall semester, 05
     }
-    return ["semester"=>$semester,"year"=>$year,"full"=>$semester.'_'.$year];
   }
-
   /**
    * Gets the semesters on for which we should import data
    *
@@ -93,31 +84,23 @@ class Courses {
     $now = new \DateTime('now');
     $month = $now->format('m');
 
-    $semesters[] = $this->currentSemester["full"];
+    $semesters[] = $this->currentSemester["sort"];
     switch($this->currentSemester["semester"]){
-      case 'Spring':
-        $semesters[] = 'Summer_'.$this->currentSemester["year"];
+      case 'SP':
+        $semesters[] = $this->currentSemester["year"]."03";
         break;
-      case 'Summer':
-        $semesters[] = 'Fall_'.$this->currentSemester["year"];
+      case 'SU':
+        $semesters[] = $this->currentSemester["year"]."05";
         break;
-      case 'Fall':
+      case 'FL':
       default:
-        $semesters[] = 'Spring_'.(intval($this->currentSemester["year"]) + 1);
+        $semesters[] = (intval($this->currentSemester["year"]) + 1)."02";
         break;
     }
     return $semesters;
   }
 
-  /**
-   * This gets the active semesters we want to display on the site, it's used for the landing page
-   *
-   * @return array
-   * a comma seperated list of periods this is offered in
-   *
-   * @throws
-   */
-  function getSemesterTermsToDisplay():array {
+  function getSemesterTermsToDisplay() {
 
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
 
@@ -130,24 +113,24 @@ class Courses {
     // Given that I am a visitor, when I view the courses offered, then I will see courses
     // for the two prior semesters, the current semester and the next semester displayed on the website.
     switch($this->currentSemester["semester"]){
-      case 'Spring':
-        $terms[] = 'Summer_'.$this->currentSemester["year"]; //next semester
+      case 'SP':
+        $terms[] = "SU".$this->currentSemester["year"]; //next semester
         $terms[] = $currentSemester;
-        $terms[] = 'Fall_'.(intval($this->currentSemester["year"]) - 1); //one semester prior
-        $terms[] = 'Summer_'.(intval($this->currentSemester["year"]) - 1); //two semesters prior
+        $terms[] = "FL".(intval($this->currentSemester["year"]) - 1); //one semester prior
+        $terms[] = "SU".(intval($this->currentSemester["year"]) - 1); //two semesters prior
         break;
-      case 'Summer':
-        $terms[] = 'Fall_'.$this->currentSemester["year"]; //next semester
+      case 'SU':
+        $terms[] = "FL".$this->currentSemester["year"]; //next semester
         $terms[] = $currentSemester;
-        $terms[] = 'Spring_'.$this->currentSemester["year"]; //one semester prior
-        $terms[] = 'Fall_'.(intval($this->currentSemester["year"]) - 1); //two semesters prior
+        $terms[] = "SP".$this->currentSemester["year"]; //one semester prior
+        $terms[] = "FL".(intval($this->currentSemester["year"]) - 1); //two semesters prior
         break;
-      case 'Fall':
+      case 'FL':
       default:
-        $terms[] = 'Spring_'.(intval($this->currentSemester["year"]) + 1); //next semester
+        $terms[] = "SP".(intval($this->currentSemester["year"]) + 1); //next semester
         $terms[] = $currentSemester;
-        $terms[] = 'Summer_'.$this->currentSemester["year"]; //one semester prior
-        $terms[] = 'Spring_'.$this->currentSemester["year"]; //two semesters prior
+        $terms[] = "SU".$this->currentSemester["year"]; //one semester prior
+        $terms[] = "SP".$this->currentSemester["year"]; //two semesters prior
         break;
     }
 
@@ -162,7 +145,6 @@ class Courses {
     $semesters["default"] = $defaultTerm ?? null;
     return $semesters;
   }
-
   /**
    * Gets the semesters for the current, previous, and next year
    *
@@ -174,35 +156,35 @@ class Courses {
     $semesters = [];
 
     //assign the current semester which is used in a couple of places
-    $currentSemester = $this->currentSemester["full"];
+    $currentSemester = $this->currentSemester["sort"];
 
     // Given that I am a visitor, when I view the courses offered, then I will see courses
     // for the two prior semesters, the current semester and the next semester displayed on the website.
     switch($this->currentSemester["semester"]){
-      case 'Spring':
-        $terms[] = 'Summer_'.$this->currentSemester["year"]; //next semester
+      case 'SP':
+        $terms[] = $this->currentSemester["year"]."03"; //next semester
         $terms[] = $currentSemester;
-        $terms[] = 'Fall_'.(intval($this->currentSemester["year"]) - 1); //one semester prior
-        $terms[] = 'Summer_'.(intval($this->currentSemester["year"]) - 1); //two semesters prior
+        $terms[] = (intval($this->currentSemester["year"]) - 1)."05"; //one semester prior
+        $terms[] = (intval($this->currentSemester["year"]) - 1)."03"; //two semesters prior
         break;
-      case 'Summer':
-        $terms[] = 'Fall_'.$this->currentSemester["year"]; //next semester
+      case 'SU':
+        $terms[] = $this->currentSemester["year"]."05"; //next semester
         $terms[] = $currentSemester;
-        $terms[] = 'Spring_'.$this->currentSemester["year"]; //one semester prior
-        $terms[] = 'Fall_'.(intval($this->currentSemester["year"]) - 1); //two semesters prior
+        $terms[] = $this->currentSemester["year"]."02"; //one semester prior
+        $terms[] = (intval($this->currentSemester["year"]) - 1)."05"; //two semesters prior
         break;
-      case 'Fall':
+      case 'FL':
       default:
-        $terms[] = 'Spring_'.(intval($this->currentSemester["year"]) + 1)."02"; //next semester
+        $terms[] = (intval($this->currentSemester["year"]) + 1)."02"; //next semester
         $terms[] = $currentSemester;
-        $terms[] = 'Summer_'.$this->currentSemester["year"]; //one semester prior
-        $terms[] = 'Spring_'.$this->currentSemester["year"]; //two semesters prior
+        $terms[] = $this->currentSemester["year"]."03"; //one semester prior
+        $terms[] = $this->currentSemester["year"]."02"; //two semesters prior
         break;
     }
 
     //all we need is the term id in this instance
     foreach ( $terms as $semester){
-      $semesters[$semester] = $semester;
+      $semesters[$semester] = $this->getDisplaySemester($semester);
     }
     return $semesters;
   }
@@ -212,22 +194,17 @@ class Courses {
    * @param string $semester
    *    the semester to run, if it's null we assign them
    *
-   * @param array $units
-   * the academic units we will process
-   *
-   * @param bool $cron
-   * this implies this is being ran from cron and makes assumptions accordingly
    * @return array
    *
    * @throws
    */
-  function getCoursesBatch(string $semester='',$units=[],$cron=false):array {
+  function getCoursesBatch($semester=null,$departments=[],$cron=false):array {
     if ($cron){
       $title = 'Courses Import';
-      $units = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
+      $departments = $this->departments['loop'];
       $semesters = $this->getSemestersToRun();
     }else{ //add an informative title for manual imports
-      $title = reset($units).' Courses Import for '.$semester;
+      $title = reset($departments).' Courses Import for '.$this->getDisplaySemester($semester);
       $semesters = [$semester];
     }
 
@@ -235,197 +212,115 @@ class Courses {
     $operations = [];
     $batch_builder = $this->initCoursesBatchBuilder($title);
 
-    //if the academic units are empty then there isn't anything to do, set a message and return
-    if (empty($units)){
+    //if the departments are empty then there isn't anything to do, set a message and return
+    if (empty($departments)){
       $this->addMessageAndLog('The departments must be selected in order to run the import. Please set the departments.');
       return $batch_builder->toArray();
     }
-    foreach( $semesters as $semester ) {
-      $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
-      $semesterTerm = $entityTools->createOrGetTerm('semester', $semester);
-      $sections = $this->executeMuleRequest('academic','sections',['AcademicPeriod_id' => $semester,'count'=>200],'sections',true,$semester);
-      $sections = $this->createSections($sections,$semesterTerm);
-      //if there aren't sections to process then continue
-      if (empty($sections)) continue;
-      foreach( $units as $unit => $unitName ) {
-        //this calls the api and adds the course data to our array
-        $this->createCourseBatches($batch_builder,$semesterTerm,$semester,$sections[$unit][$semester],$unit);
+
+    foreach ( $departments as $deptCode => $deptName){
+      //if the department is empty move to next iteration
+      if (empty($deptCode)) continue;
+      foreach( $semesters as $semester ) {
+        //no matter what we need to get the semester term id or create it we do that here
+        $displaySemester = $this->getDisplaySemester($semester);
+        $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
+        $semesterTerm = $entityTools->createOrGetTerm('semester', $displaySemester);
+
+        //we append the department and semester to the soap function name so the correct data is pulled from cache
+        $cacheAppend = $deptCode.'_'.$semester;
+        //get the curriculum, the sections will be assigned to the curriculum accordingly
+        $curriculum = $this->executeSoapRequest('GetCurriculumbyDeptbyASemester',$semester,$deptCode,$cacheAppend);
+
+        //if there isn't curriculum, log that and then move to the next iteration
+        if (empty($curriculum->Curriculum) ) {
+          $this->addMessageAndLog('There are no '.$deptName.' courses to import for '.$displaySemester.'.');
+          continue;
+        }
+        $sections = $this->executeSoapRequest('GetCoursesByDept',$semester,$deptCode,$cacheAppend)->CourseSection;
+        $sections = $this->createSections($sections,$semesterTerm,$deptCode);
+        //it's possible that we only have one course for the semester, this handles that
+        $courses = (is_object($curriculum->Curriculum))? [$curriculum->Curriculum] : $curriculum->Curriculum;
+        //if we're here then it's time to process the course data
+        foreach( $courses as $course ) {
+          $courseSections = $sections[trim($course->CourseNumber)] ?? [];
+          if ( !empty($course->CourseTitle) && !empty($courseSections) ){
+              $batch_builder->addOperation([$this, 'processCourse'], [$course,$courseSections,$semesterTerm]);
+          }
+        }
       }
     }
-
     //batch set and batch process calls go here
     return $batch_builder->toArray();
   }
 
-  /**
-   * This creates the courses batches that will be added during the wucrsl cron ron and processed during general cron
-   *
-   * @param $batch_builder
-   *  the batch we will add operations to
-   *
-   * @param string $semesterTerm
-   *   the taxonomy term id for the semester we will process
-   *
-   * @param string $semester
-   * the semester id that these courses are for
-   *
-   * @param array $courses
-   * the list of courses we will process in this batch, including their sections
-   *
-   * @param string $unit
-   * the academic unit id for these courses
-   *
-   * @return string
-   * a comma seperated list of periods this is offered in
-   *
-   * @throws
-   */
-  function createCourseBatches($batch_builder,string $semesterTerm,string $semester,array $courses,string $unit):void{
-    //add call to pull the data from cache if it exists
-    $cache = \Drupal::service('washuas_wucrsl.cache');
-
-    //we're going to save the courses to cache at using the unit and semester
-    $cacheName = 'washuas_wucrsl_courses_'.$unit.'_'.$semesterTerm;
-    //attempt to pull from cache
-    $data = $cache->getDataFromCache($cacheName);
-    //if we don't have data cached pull it from the api
-    if (empty($data)) {
-      //we are going to pull down courses by sending the course Ids processed in the sections
-      //in batches of 50 to the courses api. Then we will get and return the course fields array, along with the course sections
-      //these are then sent over to the batch api for later cron processing
-      $batchCount = 150;
-      for ($i=0;$i<count($courses);$i+=$batchCount){
-        $batch = array_slice($courses,$i,$batchCount,true);
-        $courseIDs = implode(',',array_keys($batch));
-        $curriculum = $this->executeMuleRequest('academic', 'courses', ['AcademicUnit_id' => $unit,'StudentCourse_id' => $courseIDs],'courses');
-        //save the
-        foreach($curriculum as $course){
-          $data[$course['Course_id']] = $courses[$course['Course_id']];
-          $data[$course['Course_id']]['course'] = $course;
-          //add this semesters section to the process
-          $batch_builder->addOperation([$this, 'processCourse'], [$data[$course['Course_id']],$semester,$semesterTerm]);
-        }
-      }
-      $cache->saveDataToCache($cacheName,$data);
-    }else{ //if we have data cached then add it's operations
-      foreach($data as $courseID => $course){
-        $batch_builder->addOperation([$this, 'processCourse'], [$course,$semester,$semesterTerm]);
-      }
-    }
-  }
-
-  /**
-   * Creates and saves the new course node
-   *
-   * @param array $periodsOffered
-   *  a list of all the periods in which the course is offered
-   *
-   * @return string
-   * a comma seperated list of periods this is offered in
-   *
-   * @throws
-   */
-  function getPeriodsOffered(array $periodsOffered):string{
-    $frequency = '';
-    foreach($periodsOffered as $period){
-      $frequency = (empty($frequency))?$period['AcademicPeriodsOfferedType_id']:','.$period['AcademicPeriodsOfferedType_id'];
-    }
-    return $frequency;
-  }
-
-  /**
-   * Creates and saves the new course node
-   *
-   * @param array $course
-   *  the course array to process
-   *
-   * @param string $semester
-   *  the semester id for this course ex.Fall_2024
-   *
-   * @param string $semesterTerm
-   *   the taxonomy term for the semester
-   *
-   * @param array $context
-   *    the context array passed to the function by batch processing
-   *
-   * @return void
-   *
-   * @throws
-   */
-  function processCourse($course,$semester,$semesterTerm, &$context):void{
+  function processCourse($course,$courseSections,$semesterTerm, &$context){
     //If there is already a course then we will update
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
-    $unitName = $course['course']['AcademicUnits'][0]['AcademicUnit'];
+    $deptName = trim($course->Departmentname);
     //add the fields that we will execute the query for in the entity tools service
     //these are stored as arrays under the operator we want to use
     $fields['='] = [
       'type'=>'courses',
-      'field_course_id' => $course['course']['Course_id'],
-      'field_course_dept_code' => $course['course']['AcademicUnits'][0]['AcademicUnit_id'],
+      'field_course_id' => trim($course->CourseNumber),
+      'field_course_dept_code' => trim($course->DeptCD),
       'field_course_semester' => $semesterTerm,
     ];
-
     //retrieve the existing nodes, but only if we have an existing taxonomy term as it's a filter
     $courseIDs = (empty($semesterTerm))? false : $entityTools->getNodeIDsByFields($fields);
 
-    if (!isset($context['results'][$unitName][$semester])){
-      $context['results'][$unitName][$semester] = ["updated"=>0,"added"=>0];
+    if (!isset($context['results'][$deptName][$course->DisplaySemester])){
+      $context['results'][$deptName][$course->DisplaySemester] = ["updated"=>0,"added"=>0];
     }
 
     //create the paragraphs for the sections
-    $courseSections = $this->createSectionParagraphs($course['sections']);
+    $courseSections = $this->createSectionParagraphs($courseSections);
 
     //if no nodes were returned then we'll create a new course
     if ( empty($courseIDs) ){
       //first attempt to get the term for the semester
-      $new = $this->createCourse($course['course'],$courseSections,$semesterTerm);
-      $context['results'][$unitName][$semester]['added']+= (empty($new))? 0:1;
+      $new = $this->createCourse($course,$courseSections,$semesterTerm);
+      $context['results'][$deptName][$course->DisplaySemester]['added']+= (empty($new))? 0:1;
+
     }else{
-      $this->updateCourse($courseIDs,$course['course'],$courseSections);
-      $context['results'][$unitName][$semester]['updated']+= 1;
+      $this->updateCourse($courseIDs,$course,$courseSections);
+      $context['results'][$deptName][$course->DisplaySemester]['updated']+= 1;
     }
   }
-
-  /**
+    /**
      * Creates and saves the new course node
      *
-     * @param array $course
+     * @param object $course
      *  the soap course object
      *
      * @param array $sections
      *  the target ids of the section paragraphs
      *
-     * @param $semester
-     *   the taxonomy term for the semester
-     *
      * @return object
      *
      * @throws
      */
-    public function createCourse(array $course,array $sections,$semester) {
+    public function createCourse($course,$sections,$semester) {
+        $courseID = trim($course->CourseNumber);
+        $deptCD = trim($course->DeptCD);
         //if it's not set then create the term
         $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
         //these are the fields that we'll send to entity tools for creation
         $fields = [
-          'type' => 'courses',
-          'title' => $course['CourseTitle'],
-          'field_course_id' => $course['Course_id'],
-          'field_course_description' => $course['Description'],
-          'field_course_dept_code' => $course['AcademicUnits'][0]['AcademicUnit_id'],
-          'field_course_department_name' => $course['AcademicUnits'][0]['AcademicUnit'],
-          'field_course_credits' => $course['MaximumUnits'],
-          'field_course_level' => $this->getCourseLevel($course['Listings'][0]['CourseNumber']),
-          'field_course_sections'  => $sections,
-          'field_course_semester' => $semester,
+            'type' => 'courses',
+            'title' => trim($course->CourseTitle),
+            'field_course_id' => $courseID,
+            'field_course_description' => $course->Description,
+            'field_course_dept_code' => $deptCD,
+            'field_course_department_name' => $course->Departmentname,
+            'field_course_frequency' => $course->FrequencyOffered,
+            'field_course_credits' => $course->Credits,
+            'field_course_attributes' => $this->getCourseAttributes($course->CourseAttributes),
+            'field_course_level' => $this->getCourseLevel($courseID),
+            'field_course_sections'  => $sections,
+            'field_course_semester' => $semester,
         ];
-        if (array_key_exists('CourseTags',$course)){
-          $fields['field_course_attributes'] = $this->getCourseAttributes($course['CourseTags']);
-        }
-        if (array_key_exists('PeriodsOffered',$course)) {
-          $fields['field_course_frequency'] = $this->getPeriodsOffered($course['PeriodsOffered']);
-        }
-
-      //get the values that will carry over
+        //get the values that will carry over
         $fields += $this->getCurriculumSharedData($course);
 
         //create and save the course
@@ -435,10 +330,10 @@ class Courses {
     /**
      * Updates an existing course with the fresh soap data
      *
-     * @param array $courseID
+     * @param string $courseID
      *  the node ID of the course we are updating
      *
-     * @param array $course
+     * @param object $course
      *  the soap course object we will be assigning data from
      *
      * @param array $sections
@@ -448,37 +343,19 @@ class Courses {
      *
      * @throws
      */
-    public function updateCourse(array $courseID,array $course,array $sections):void {
-      //these are the fields that we'll send to entity tools for creation
-      $fields = [
-        'field_course_description' => $course['Description'],
-        'field_course_department_name' => $course['AcademicUnits'][0]['AcademicUnit'],
-        'field_course_credits' => $course['MaximumUnits'],
-        'field_course_sections'  => $sections,
-      ];
-      if (array_key_exists('CourseTags',$course)){
-        $fields['field_course_attributes'] =  $this->getCourseAttributes($course['CourseTags']);
-      }
-      if (array_key_exists('PeriodsOffered',$course)) {
-        $fields['field_course_frequency'] = $this->getPeriodsOffered($course['PeriodsOffered']);
-      }
-
+    public function updateCourse($courseID,$course,$sections):void {
+        //these are the fields that we'll send to entity tools for creation
+        $fields = [
+            'field_course_description' => $course->Description,
+            'field_course_department_name' => $course->Departmentname,
+            'field_course_frequency' => $course->FrequencyOffered,
+            'field_course_credits' => $course->Credits,
+            'field_course_attributes' => $this->getCourseAttributes($course->CourseAttributes),
+            'field_course_sections'  => $sections,
+        ];
       \Drupal::service('washuas_wucrsl.entitytools')->updateNodesByIDs($courseID,$fields);
     }
 
-  /**
-   * Retrieves the fields from an existing course that are synced across course ids
-   *
-   * @param $success
-   *  this is sent to the function via batch builder finish callback
-   *
-   * @param $results
-   * this is sent to the function via batch builder finish callback
-   *
-   * @param $operations
-   *  this is sent to the function via batch builder finish callback
-   *
-   */
   public function coursesImportFinished($success, $results, $operations):void{
       foreach ($results as $department => $semesters) {
         foreach ($semesters as $semester => $courseLog) {
@@ -487,13 +364,7 @@ class Courses {
       }
   }
 
-  /**
-   * sends the list of fields that carry over across semesters
-   *
-   * @return array
-   *  an array of the shared values to be assigned to the new course
-   */
-  function getCurriculumSharedFields():array{
+  function getCurriculumSharedFields(){
       return ["field_course_links",
               "field_search",
               "field_course_instructors",
@@ -503,22 +374,21 @@ class Courses {
     /**
    * Retrieves the fields from an existing course that are synced across course ids
    *
-   * @param array $course
+   * @param object $course
    *   the course object
    *
    *
    * @return array
    *  an array of values to be assigned to the new course
    */
-  public function getCurriculumSharedData(array $course):array{
+  public function getCurriculumSharedData($course){
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
     //first attempt to pull any courses with the id
     $fields['='] = [
       'type'=>'courses',
-      'field_course_id' => $course['Course_id'],
-      'field_course_dept_code' => $course['AcademicUnits'][0]['AcademicUnit_id'],
+      'field_course_id' => trim($course->CourseNumber),
+      'field_course_dept_code' => trim($course->DeptCD),
     ];
-
 
     //retrieve the existing nodes, but only if we have an existing taxonomy term as it's a filter
     $courseIDs = $entityTools->getNodeIDsByFields($fields);
@@ -563,18 +433,17 @@ class Courses {
    *   the course IDs that we'll pull nodes for
    *
    *
-   * @return \Drupal\Core\Entity\EntityInterface|array
-   *
+   * @return \Drupal\Core\Entity\EntityInterface
    *  the course entity that we will pull the data from
    *
    * @throws
    */
-  public function getCurriculumCourse(array $courseIDs){
+  public function getCurriculumCourse($courseIDs){
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
 
     //if there aren't any course ids then return null
     if (empty($courseIDs)){
-      return [];
+      return null;
     }
     //initiate these to null
     $preserveSemester = 0;
@@ -603,219 +472,139 @@ class Courses {
   }
 
   /**
+   * Gets the soap parameters that we will use to make our calls
+   *
+   * @param string $env
+   *  the environment used to pull configuration from
+   *
+   * @param string $function
+   *  the soap function we will be calling
+   *
+   * @param string $semester
+   *  the semester for which we'll pull the data
+   *
+   * @return array $params
+   *  the parameters we will use for soap calls
+   *
+   */
+  public function getSoapParameters($env,$function=null,$semester=null,$department=null): array {
+    //this will be our return value
+    $params = [];
+
+    //pull the department from the configuration or set the default to L
+    //Set the environment parameters based on the selected environment of the configuration screen
+    $params['ApplicationToken'] = $this->config->get('wucrsl_'.$env.'_soap_client_id');
+    $params['ApplicationPwd'] = $this->config->get('wucrsl_'.$env.'_soap_client_pw');
+    //get the current semester if needed
+    $current = $this->getCurrentSemester()["sort"];
+    switch( $function ){
+      case "GetCoursesByDept":
+      case "GetCurriculumbyDeptbyASemester":
+        $params['DeptCd'] = $department;
+        $params['SchoolCd'] = static::school;
+        $params['SortSemester'] = empty($semester) ? (int)$current : (int)$semester;
+        break;
+      case "GetDepartments":
+        $params['SchoolCd'] = static::school;
+        $params['Semester'] = empty($semester) ? (int)$current : (int)$semester;
+        break;
+      default:
+        break;
+    }
+
+    return $params;
+  }
+
+  /**
    * Makes the soap call given configuration and the function
    *
-   * @param string $api
-   *  the name of the api we will call
+   * @param string $soapFunction
+   *  the function that we'll call via soap
    *
-   * @param string $method
-   *   the method of the api we will call
+   * @param integer $semester
+   *  the semester for which we'll pull the data
    *
-   * @param array $query
-   *    the query to send to the api call
+   * @param string $neededIndex
+   *   an index to check cached data for, needs review
    *
-   * @param string $dataKey
-   * the index in which data will be available after the api call
-   *
-   * @param boolean $useCache
-   *  should the returned api data be saved to and pulled from cache
-   *
-   * @param string $cacheAppend
-   *   an additional string to add to where to save/pull your cache data from
-   *
-   * @return array $data
+   * @return object $data
    *  the associated soap data pulled from the request or cache
    *
    */
-  function executeMuleRequest(string $api,string $method,array $query,string $dataKey,bool $useCache=false,string $cacheAppend=''):array {
-    $mule = \Drupal::service('washuas_wucrsl.mule');
+  function executeSoapRequest($soapFunction,$semester,$department=null,$cacheAppend=null) {
+    $soap = \Drupal::service('washuas_wucrsl.soap');
     //if for cache purposes we have something to append to the soap function we do it here
-    $cache = \Drupal::service('washuas_wucrsl.cache');
-    $cacheName = (empty($cacheAppend)) ? 'washuas_wucrsl_'.$api.'_'.$method : 'washuas_wucrsl_'.$api.'_'.$method.'_'.$cacheAppend ;
+    $function = (empty($cacheAppend)) ? $soapFunction : $soapFunction.'_'.$cacheAppend ;
     //pull the associated data from cache
-    $data = ($useCache)? $cache->getDataFromCache($this->config->get('wucrsl_cache_api'),$cacheName):[];
+    $data = $soap->getDataFromCache($this->config->get('wucrsl_cache_soap'),$function);
     //if we were not able to get the needed data from cache then we will attempt to pull it from soap
-    if (empty($data)) {
-
+    if (empty($data)){
       //we will use this to get the associated variables from the configuration, dev is the default
-      $url = $this->config->get('wucrsl_request_url');
-      //this retrieves the parameters for the api and the key for it's data in the array
-      $parameters = $mule->getAPIParameters($api, $method, $query);
+      $env = empty($this->config->get('wucrsl_soap_env')) ? 'dev' : $this->config->get('wucrsl_soap_env') ;
+      $url = $this->config->get('wucrsl_'.$env.'_soap_url');
+      //get the needed parameters for this particular soap function
+      $parameters = $this->getSoapParameters($env,$soapFunction,$semester,$department);
       //run the soap function to pull the data
-      return $mule->executeFunction($url, $api, $method, $dataKey, $parameters);
+      $data = $soap->executeFunction($url,$parameters,$soapFunction);
+      //save the data to cache
+      $soap->saveDataToCache($this->config->get('wucrsl_cache_soap'),$function,$data,strtotime('midnight') + (48*60*60),["wucrsl"]);
     }
-    //save the data to cache
-    if ($useCache){
-      $cache->saveDataToCache($cacheName,$data);
-    }
-
     return $data;
   }
 
   /**
    * Creates the section paragraphs for the course
    *
-   * @param array $sections
-   *  the array for the section course data
+   * @param object $sections
+   *  the soap objects for the section course data
    *
-   * @param string $semester
+   * @param string $displaySemester
    *  the formatted semester we will store in the section data
    *
-   * @return array
-   *  an array of all the sections that are almost ready to create paragraphs for
-   *
-   * @throws
-   */
-  public function createSections(array $sections,string $semester):array{
-    $fields = [];
-    //it's possible that we only have one section, this handles that
-    foreach ($sections as $section) {
-      //pull the academic unit that we want this course for
-      $unit = (array_key_exists('SectionAcademicUnits', $section)) ? $this->getNeededAcademicUnit($section["SectionAcademicUnits"]) : NULL;
-      //if we don't have an associated unit we don't need this course, move on
-      if (empty($unit)) continue;
-
-      $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]] = [
-        'type' => 'course_sections',
-        'field_section_course_id' => [
-          'value' => $section["Course_id"],
-        ],
-        'field_section_dept_code' => [
-          'value' => $unit,
-        ],
-        'field_section_number' => [
-          'value' => $section["CourseSection"],
-        ],
-        'field_section_title' => [
-          'value' => $section["Title"],
-        ],
-        'field_course_semester' => $semester,
-      ];
-      if (array_key_exists('InstructorRoleAssignments', $section)) {
-        $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_section_instructors'] = $this->getSectionInstructors($section['InstructorRoleAssignments']);
-      }
-      if (array_key_exists('SectionComponents', $section)) {
-        $fields[$unit][$section["AcademicPeriod_id"]][$section["Course_id"]]['sections'][$section["CourseSection"]]['field_room_schedules'] = $section['SectionComponents'];
-      }
-    }
-    return $fields;
-  }
-
-  /**
-   * Gets the room schedule paragraph ids
-   *
-   * @param array $components
-   *  the list of components to get schedules from
-   *
-   * @return array
-   *  an array of the room schedule paragraph ids
-   *
-   * @throws
-   */
-  public function getRoomSchedules(array $components):array{
-
-    $schedules = [];
-
-    foreach ($components as $component) {
-      if (array_key_exists('MeetingPattern_id',$component)){
-        $schedules[] = $this->createRoomSchedule($component['MeetingPattern_id']);
-      }
-    }
-
-    return $schedules;
-  }
-
-  /**
-   * Creates the room schedule paragraphs and returns an array of their ids
-   *
-   * @param string $schedule
-   *  the room schedule object
-   *
-   * @return array
-   *  an array of the room schedule paragraph ids
-   *
-   * @throws
-   */
-  public function createRoomSchedule(string $schedule):array {
-    //if there isn't a schedule return a empty array
-    if (empty($schedule)){
-      return [];
-    }
-    $scheduleParts = explode('_',$schedule);
-    $days = $scheduleParts[0];
-
-    //reformat the dateTime and clear out any values of 12:00AM
-    $startTime = date('h:i A', strtotime($scheduleParts[1]));
-    $startTime = ($startTime == "12:00 AM") ? "": $startTime;
-
-    //reformat the dateTime and clear out any values of 12:00AM
-    $endTime = date('h:i A', strtotime($scheduleParts[2])); //Endtime - time needs to be lowercase >:|
-    $endTime = ($startTime == "12:00 AM") ? "": $endTime;
-
-    //build the room_schedule paragraph
-    $fields = [
-      'type' => 'room_schedule',
-      'field_day' => [
-        'value'  => $days,
-      ],
-      'field_end_time' => [
-        'value'  => $endTime,
-      ],
-      'field_start_time' => [
-        'value'  => $startTime,
-      ],
-    ];
-    $paragraph = \Drupal::service('washuas_wucrsl.entitytools')->createContent($fields,'paragraph');
-
-    return [
-      'target_id' => $paragraph->id(),
-      'target_revision_id' => $paragraph->getRevisionId(),
-    ];
-  }
-
-  /**
-   * checks our academic units to make sure this section's department is selected for import
-   *
-   * @param array $units
-   *  the list of academic units from the course
-   *
-   * @return string
-   *  the academic unit we are processing this course for
-   *
-   * @throws
-   */
-  public function getNeededAcademicUnit(array $units):string{
-    $activeUnits = \Drupal::service('config.factory')->get(static::SETTINGS)->get('wucrsl_academic_units');
-    foreach($units as $unit){
-      if (isset($activeUnits[$unit["AcademicUnit_id"]])){
-        return $unit["AcademicUnit_id"];
-      }
-    }
-    return '';
-  }
-
-  /**
-   * Gets paragraphs for course sections
-   *
-   * @param array $sections
-   *  the sections we will create paragraphs for
+   * @param string $department
+   *   the department we will assign the section
    *
    * @return array
    *  an array of all the paragraph ids
    *
    * @throws
    */
-  public function createSectionParagraphs(array $sections):array{
+  public function createSections($sections,$semester,$department):array{
+    $fields = [];
+    //it's possible that we only have one section, this handles that
+    $sections = (is_object($sections))? [$sections] : $sections;
+    foreach ($sections as $section){
+      $fields[trim($section->coursenumber)][] = [
+        'type' => 'course_sections',
+        'field_section_course_id' => [
+          'value'  => trim($section->coursenumber),
+        ],
+        'field_section_dept_code' => [
+          'value'  => trim($department),
+        ],
+        'field_room_schedules' => $this->getRoomSchedules($section->RoomSchedule),
+        'field_section_instructors' => [
+          'value'  => $this->getSectionInstructors($section->Instructors),
+        ],
+        'field_section_number' => [
+          'value'  => $section->Section,
+        ],
+        'field_section_title' => [
+          'value'  => $section->SectionTitle,
+        ],
+        'field_course_semester' =>$semester,
+      ];
+    }
+
+    return $fields;
+  }
+
+  public function createSectionParagraphs($sections):array{
     $paragraphs = [];
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
 
     foreach ($sections as $section){
-      //if the section is empty then unset it
-      if (empty($section['field_room_schedules'])){
-        unset($section['field_room_schedules']);
-      }else{ //create the room schedule paragraphs
-        $section['field_room_schedules'] = $this->getRoomSchedules($section['field_room_schedules']);
-      }
+      //get the semester if it exists, this returns false so we'll use that to determine
       //if we need to create and assign a new one or use this
       $paragraph = $entityTools->createContent($section,'paragraph');
 
@@ -831,7 +620,7 @@ class Courses {
   /**
    * Gets paragraphs for course attributes
    *
-   * @param array $courseAttributes
+   * @param object $courseAttributes
    *  the soap objects for course attributes
    *
    * @return array
@@ -839,12 +628,12 @@ class Courses {
    *
    * @throws
    */
-  public function getCourseAttributes(array $courseAttributes):array {
+  public function getCourseAttributes($courseAttributes): array {
 
     $paragraphs = [];
 
-    if (isset($courseAttributes)  && is_array($courseAttributes)) {
-      $paragraphs = $this->createCourseAttributes($courseAttributes);
+    if (isset($courseAttributes->CourseAttributes)  && is_array($courseAttributes->CourseAttributes)) {
+      $paragraphs = $this->createCourseAttributes($courseAttributes->CourseAttributes);
     }
 
     return $paragraphs;
@@ -861,16 +650,28 @@ class Courses {
    *
    * @throws
    */
-  protected function createCourseAttributes(array $courseAttributes):array {
+  protected function createCourseAttributes(array $courseAttributes): array {
 
     $paragraphs = [];
     $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
 
-    foreach ( $courseAttributes as $attribute ) {
+    foreach ( $courseAttributes as $index => $attributes ) {
       $fields = [
         'type' => 'course_attributes',
+        'field_ca_full_name' => [
+          'value'  => $attributes->FullName,
+        ],
+        'field_ca_group' => [
+          'value'  => $attributes->ATTRGroup,
+        ],
+        'field_ca_owner_full_name' => [
+          'value'  => $attributes->ATTROwnerFullName,
+        ],
+        'field_ca_owner_short_name' => [
+          'value'  => $attributes->ATTROwnerShortName,
+        ],
         'field_ca_short_name' => [
-          'value'  => $attribute['CourseTag_id'],
+          'value'  => $attributes->Shortname,
         ],
       ];
       $paragraph = $entityTools->createContent($fields,'paragraph');
@@ -886,17 +687,18 @@ class Courses {
   /**
    * Gets the course level from the course id value
    *
-   * @param string $courseNum
+   * @param string $courseID
    *  the soap objects for course attributes
    *
-   * @return \Drupal\taxonomy\Entity\Term|array
+   * @return \Drupal\taxonomy\Entity\Term|FALSE
    *  the taxonomy term for course level
    *
    * @throws
    */
-  public function getCourseLevel(string $courseNum) {
+  public function getCourseLevel($courseID)
+  {
     // Course Level is based on the first digit of the Course Code number
-    switch(substr($courseNum, 0, 1)){
+    switch(substr($courseID, 0, 1)){
       case '5':
         $courseLevel =  500;
         break;
@@ -924,71 +726,231 @@ class Courses {
   }
 
   /**
-   * Get the instructor names from the array
+   * Gets the room schedule paragraph ids
    *
-   * @param array $instructorAssignments
-   *  the instructors array
+   * @param object $roomSchedule
+   *  the room schedule object
    *
-   * @return string
-   *  a comma delimited list of instructor last names
+   * @return array
+   *  an array of the room schedule paragraph ids
    *
    * @throws
    */
-  public function getSectionInstructors(array $instructorAssignments):string {
-    if (empty((array) $instructorAssignments)) {
-      return '';
+  public function getRoomSchedules($roomSchedule):array{
+
+    $schedules = [];
+
+    if (!isset($roomSchedule->RoomSchedule)){
+      $missing = true;
+    }else if (is_array($roomSchedule->RoomSchedule)){
+      for ($i = 0; $i < count($roomSchedule->RoomSchedule); $i++) {
+        $schedules[] = $this->createRoomSchedule($roomSchedule->RoomSchedule[$i]);
+      }
+    }else if (is_object($roomSchedule->RoomSchedule)){
+      $schedules[] = $this->createRoomSchedule($roomSchedule->RoomSchedule);
     }
 
-    $names = [];
-    foreach ($instructorAssignments as $role) {
-      foreach($role['AssigneesToAdd'] as $instructor){
-        $names[] = explode(',',$instructor['AssigneeName'])[0];
-      }
-    }
-    return substr(implode(', ', $names), 0, 254);
+    return $schedules;
   }
 
   /**
-   * Reformat the display semester to integer for sorting purposes
+   * Creates the room schedule paragraphs and returns an array of their ids
+   *
+   * @param object $roomSchedule
+   *  the room schedule object
+   *
+   * @return array
+   *  an array of the room schedule paragraph ids
+   *
+   * @throws
+   */
+  public function createRoomSchedule($roomSchedule)
+  {
+
+    $days = $this->getDays($roomSchedule->Day);
+
+    //reformat the dateTime and clear out any values of 12:00AM
+    $startTime = date('h:i A', strtotime($roomSchedule->StartTime));
+    $startTime = ($startTime == "12:00 AM") ? "": $startTime;
+
+    //reformat the dateTime and clear out any values of 12:00AM
+    $endTime = date('h:i A', strtotime($roomSchedule->Endtime)); //Endtime - time needs to be lowercase >:|
+    $endTime = ($startTime == "12:00 AM") ? "": $endTime;
+
+    $building = ($roomSchedule->Bldg == 9999) ? "TBA" : $roomSchedule->Bldg;
+
+    //build the room_schedule paragraph
+    $fields = [
+      'type' => 'room_schedule',
+      'field_building' => [
+        'value'  => $building,
+      ],
+      'field_day' => [
+        'value'  => $days,
+      ],
+      'field_end_time' => [
+        'value'  => $endTime,
+      ],
+      'field_room' => [
+        'value'  => $roomSchedule->Room,
+      ],
+      'field_start_time' => [
+        'value'  => $startTime,
+      ],
+    ];
+    $paragraph = \Drupal::service('washuas_wucrsl.entitytools')->createContent($fields,'paragraph');
+
+    return [
+      'target_id' => $paragraph->id(),
+      'target_revision_id' => $paragraph->getRevisionId(),
+    ];
+  }
+
+  /**
+   * Reformat the days value for Room Schedule usage
+   *
+   * @param string $days
+   *  the room schedule object
+   *
+   * @return string
+   *  the reformatted days of the course section
+   *
+   * @throws
+   */
+  public function getDays(string $days):string
+  {
+    // The format that is being returned has - if that day isn't assigned
+    // it has the first letter of the day if it does
+    // M------ or -T----- or --W----
+    if (trim($days) == 'TBD') {
+      return 'TBD';
+    }
+    if (trim($days) == 'TBA') {
+      return 'TBA';
+    }
+
+    // Check if this is a correctly formatted date list
+    if ($days[0] !== '_' && $days[0] !== 'M') {
+      $daysFormatted = array();
+      for ($i = 0; $i < 7; $i++) {
+        if ($days) {
+          if ($days[$i] !== '-') {
+            switch ($i) {
+              case '0':
+                $daysFormatted[] = 'M';
+                break;
+              case '1':
+                $daysFormatted[] = 'T';
+                break;
+              case '2':
+                $daysFormatted[] = 'W';
+                break;
+              case '3':
+                $daysFormatted[] = 'R';
+                break;
+              case '4':
+                $daysFormatted[] = 'F';
+                break;
+              case '5':
+                $daysFormatted[] = 'Sat';
+                break;
+              case '6':
+                $daysFormatted[] = 'Sun';
+                break;
+            }
+          }
+        }
+      }
+      return join("-", $daysFormatted);
+    } else {
+      return trim($days);
+    }
+  }
+
+  /**
+   * Get the instructor names from the object
+   *
+   * @param object $instructors
+   *  the instructors object
+   *
+   * @return string
+   *  the list of instructor names
+   *
+   * @throws
+   */
+  public function getSectionInstructors($instructors):string {
+    if (empty((array) $instructors)) {
+      return '';
+    }
+
+    if (is_array($instructors->Instructors)) {
+      $names = [];
+      foreach ($instructors->Instructors as $id => $i) {
+        $names[] = $i->teacherName;
+      }
+      return substr(implode(', ', $names), 0, 254);
+    }
+    else {
+      return $instructors->Instructors->teacherName;
+    }
+  }
+
+  /**
+   * Reformat the sort semester to display semester
+   *
+   * @param string $semester
+   *  the sort semester we'll reformat
+   *
+   * @return string
+   *  the display Semester
+   *
+   * @throws
+   */
+  function getDisplaySemester(string $semester):string {
+    $seasons = array(
+      1 => 'JI',
+      2 => 'SP',
+      3 => 'SU',
+      4 => 'YR',
+      5 => 'FL',
+    );
+
+    $season = (int)substr($semester, 4);
+    $year = (int)substr($semester, 0, 4);
+
+    return $seasons[$season] . $year;
+  }
+
+  /**
+   * Reformat the display semester to sort semester
    *
    * @param string $semester
    *  the display semester we'll reformat
    *
-   * @return integer|FALSE
+   * @return string|FALSE
    *  the sort Semester
    *
    * @throws
    */
-  function getSortSemester(string $semester):int {
+  function getSortSemester(string $semester):string {
+    $semester = trim( (string) $semester);
     if(strlen($semester) != 6)
       return FALSE;
 
     $seasons = array(
-      'Spring' => '02',
-      'Summer' => '03',
-      'Fall' => '05',
+      'JI' => '01',
+      'SP' => '02',
+      'SU' => '03',
+      'YR' => '04',
+      'FL' => '05',
     );
 
-    $components = explode('_',$semester);
+    $season = substr($semester, 0, 2);
+    $year = substr($semester, 2);
 
-    return isset($seasons[$components[0]]) ? intval($components[1].$seasons[$components[0]]) : FALSE;
+    return isset($seasons[$season]) ? $year . $seasons[$season] : FALSE;
   }
-
-  /**
-   * Get an initialized batch builder with our settings
-   *
-   * @param string $a
-   *  the first value to be compared
-   *
-   * @param string $b
-   *   the second value to be compared
-   *   * @return int
-   *  the value to use to sort with based on the comparison of a and b
-   *
-   * @throws
-   */
-  function sortSemesters(string $a, string $b) {
-    //these get the integer value of the sort semester so we're able to sort correctly
+  function sortSemesters($a, $b) {
     $sortA = $this->getSortSemester($a);
     $sortB = $this->getSortSemester($b);
 
@@ -997,19 +959,10 @@ class Courses {
     }
     return ($sortA > $sortB) ? -1 : 1;
   }
-
-  /**
-   * Get an initialized batch builder with our settings
-   *
-   * @param string $title
-   *  the title to display while batch processing
-   *
-   * @return BatchBuilder
-   *  the initialized batch to add operations to and process
-   *
-   * @throws
-   */
-  public function initCoursesBatchBuilder(string $title):BatchBuilder{
+  function getDepartmentOptions($index){
+    return $this->departments[$index];
+  }
+  public function initCoursesBatchBuilder($title):BatchBuilder{
     return (new BatchBuilder())
                 ->setFile(\Drupal::service('module_handler')->getModule('washuas_wucrsl')->getPath(). '/src/Services/Courses.php')
                 ->setTitle(t($title))

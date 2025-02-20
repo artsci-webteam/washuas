@@ -4,7 +4,7 @@ system.admin_config_washuas_wucrsl:
   route_name: system.admin_config_washuas_wucrsl
   weight: -100
 washuas_wucrsl.settings:
-  title: API Settings
+  title: SOAP Settings
   parent: system.admin_config_washuas_wucrsl
   route_name: washuas_wucrsl.settings
   weight: 9
@@ -13,8 +13,8 @@ washuas_wucrsl.manual:
   parent: system.admin_config_washuas_wucrsl
   route_name: washuas_wucrsl.manual
   weight: 10
-washuas_wucrsl.units:
-  title: Academic Units
+washuas_wucrsl.departments:
+  title: Departments
   parent: system.admin_config_washuas_wucrsl
-  route_name: washuas_wucrsl.units
+  route_name: washuas_wucrsl.departments
   weight: 10

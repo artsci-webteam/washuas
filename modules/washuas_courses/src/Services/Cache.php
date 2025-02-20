@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\washuas_wucrsl\Services;
+namespace Drupal\washuas_courses\Services;
 
 use Drupal\Core\Config\Schema\ArrayElement;
 use Drupal\Core\Config\ConfigFactoryInterface;
@@ -8,25 +8,25 @@ use Drupal\Core\Config\Config;
 
 
 /**
- * Class Soap.
+ * Class Cache.
  *
- * @file providing helpful SOAP functions to use with the WUCrsl web service
+ * @file providing helpful cache functions to use with the Courses web service
  */
 
 class Cache {
   /**
-   * Loaded washuas_wucrsl settings.
+   * Loaded washuas_courses settings.
    *
    * @var \Drupal\Core\Config\ImmutableConfig
    */
   protected $config;
   protected $useCache;
-  const SETTINGS = 'washuas_wucrsl.settings';
+  const SETTINGS = 'washuas_courses.settings';
 
   //protected
   public function __construct() {
     $this->config = \Drupal::config(static::SETTINGS);
-    $this->useCache = $this->config->get('wucrsl_cache_api');
+    $this->useCache = $this->config->get('courses_cache_api');
   }
 
   /**
@@ -75,7 +75,7 @@ class Cache {
   function saveDataToCache(string $cacheStorage,array $data):void{
     // cache the data
     if($this->useCache){
-      \Drupal::cache('data')->set($cacheStorage, $data,strtotime('midnight') + (48*60*60),["wucrsl"]);
+      \Drupal::cache('data')->set($cacheStorage, $data,strtotime('midnight') + (48*60*60),["courses"]);
     }
   }
 }
