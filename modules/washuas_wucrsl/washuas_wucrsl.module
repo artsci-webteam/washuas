@@ -11,7 +11,7 @@ use Drupal\Core\Form\FormState;
 /**
  * Implements hook_cron().
  */
-function washuas_wucrsl_cron() {
+/*function washuas_wucrsl_cron() {
   //get the batch that we will process
   $batch = \Drupal::service('washuas_wucrsl.courses')->getCoursesBatch(null,[], true);
   //get the queue that we will use to process it
@@ -20,6 +20,9 @@ function washuas_wucrsl_cron() {
   $queue->createItem($batch);
   //
 }
+
+//removed this since we're not planning on using cron for wucrsl -kenneth
+*/
 
 /**
  * Implements hook_form_views_exposed_form_alter().

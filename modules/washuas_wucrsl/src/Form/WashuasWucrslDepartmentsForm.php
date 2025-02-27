@@ -78,7 +78,7 @@ class WashuasWucrslDepartmentsForm extends ConfigFormBase {
       '#type' => 'checkboxes',
       '#options' => $courses->getDepartmentOptions('options'),
       '#title' => $this->t('Departments to import.'),
-      '#default_value' => $config->get('wucrsl_department'),
+      '#default_value' => (empty($config->get('wucrsl_department'))) ? []:$config->get('wucrsl_department'),
      ];
 
     return parent::buildForm($form, $form_state);
