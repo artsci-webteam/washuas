@@ -27,7 +27,6 @@ class Courses {
   public function __construct() {
     $this->config = \Drupal::config(static::SETTINGS);
     $this->currentSemester = $this->getCurrentSemester();
-    $this->departments = $this->getDepartments();
   }
 
   public function getDepartments(){
@@ -201,7 +200,7 @@ class Courses {
   function getCoursesBatch($semester=null,$departments=[],$cron=false):array {
     if ($cron){
       $title = 'Courses Import';
-      $departments = $this->departments['loop'];
+      $departments = $this->getDepartments()['loop'];
       $semesters = $this->getSemestersToRun();
     }else{ //add an informative title for manual imports
       $title = reset($departments).' Courses Import for '.$this->getDisplaySemester($semester);
@@ -955,9 +954,6 @@ class Courses {
       return 0;
     }
     return ($sortA > $sortB) ? -1 : 1;
-  }
-  function getDepartmentOptions($index){
-    return $this->departments[$index];
   }
   public function initCoursesBatchBuilder($title):BatchBuilder{
     return (new BatchBuilder())
