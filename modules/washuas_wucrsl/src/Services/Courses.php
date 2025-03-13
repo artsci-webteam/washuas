@@ -27,7 +27,6 @@ class Courses {
   public function __construct() {
     $this->config = \Drupal::config(static::SETTINGS);
     $this->currentSemester = $this->getCurrentSemester();
-    $this->departments = $this->getDepartments();
   }
 
   public function getDepartments(){
@@ -201,7 +200,7 @@ class Courses {
   function getCoursesBatch($semester=null,$departments=[],$cron=false):array {
     if ($cron){
       $title = 'Courses Import';
-      $departments = $this->departments['loop'];
+      $departments = $this->getDepartments()['loop'];
       $semesters = $this->getSemestersToRun();
     }else{ //add an informative title for manual imports
       $title = reset($departments).' Courses Import for '.$this->getDisplaySemester($semester);
@@ -474,28 +473,25 @@ class Courses {
   /**
    * Gets the soap parameters that we will use to make our calls
    *
-   * @param string $env
-   *  the environment used to pull configuration from
-   *
    * @param string $function
    *  the soap function we will be calling
    *
    * @param string $semester
    *  the semester for which we'll pull the data
    *
+   * @param string $department
+   *   the department for which we'll pull the data
+   *
    * @return array $params
    *  the parameters we will use for soap calls
    *
    */
-  public function getSoapParameters($env,$function=null,$semester=null,$department=null): array {
+  public function getSoapParameters($function=null,$semester=null,$department=null): array {
     //this will be our return value
     $params = [];
 
-    //pull the department from the configuration or set the default to L
-    //@todo change the default department and school?
-    //Set the environment parameters based on the selected environment of the configuration screen
-    $params['ApplicationToken'] = $this->config->get('wucrsl_'.$env.'_soap_client_id');
-    $params['ApplicationPwd'] = $this->config->get('wucrsl_'.$env.'_soap_client_pw');
+    $params['ApplicationToken'] = $this->config->get('wucrsl_soap_client_id');
+    $params['ApplicationPwd'] = $this->config->get('wucrsl_soap_client_pw');
     //get the current semester if needed
     $current = $this->getCurrentSemester()["sort"];
     switch( $function ){
@@ -503,7 +499,6 @@ class Courses {
       case "GetCurriculumbyDeptbyASemester":
         $params['DeptCd'] = $department;
         $params['SchoolCd'] = static::school;
-        //@todo update the below to instead use our function to grab the current semester
         $params['SortSemester'] = empty($semester) ? (int)$current : (int)$semester;
         break;
       case "GetDepartments":
@@ -542,10 +537,9 @@ class Courses {
     //if we were not able to get the needed data from cache then we will attempt to pull it from soap
     if (empty($data)){
       //we will use this to get the associated variables from the configuration, dev is the default
-      $env = empty($this->config->get('wucrsl_soap_env')) ? 'dev' : $this->config->get('wucrsl_soap_env') ;
-      $url = $this->config->get('wucrsl_'.$env.'_soap_url');
+      $url = $this->config->get('wucrsl_soap_url');
       //get the needed parameters for this particular soap function
-      $parameters = $this->getSoapParameters($env,$soapFunction,$semester,$department);
+      $parameters = $this->getSoapParameters($soapFunction,$semester,$department);
       //run the soap function to pull the data
       $data = $soap->executeFunction($url,$parameters,$soapFunction);
       //save the data to cache
@@ -960,9 +954,6 @@ class Courses {
       return 0;
     }
     return ($sortA > $sortB) ? -1 : 1;
-  }
-  function getDepartmentOptions($index){
-    return $this->departments[$index];
   }
   public function initCoursesBatchBuilder($title):BatchBuilder{
     return (new BatchBuilder())

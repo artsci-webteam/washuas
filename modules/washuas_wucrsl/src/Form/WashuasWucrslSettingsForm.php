@@ -11,7 +11,7 @@ use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\washuas\Services\EntityTools;
 use Drupal\washuas_wucrsl\Services\Soap;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-
+use Symfony\Component\Dotenv\Dotenv;
 
 /**
  * Configure settings for this WashU A&S WUCrsl module.
@@ -100,102 +100,45 @@ class WashuasWucrslSettingsForm extends ConfigFormBase {
       '#description' => t('Uncheck to always get new information from the WUCrsL feed. Check to save the results of SOAP calls in the database. Cron will always clear a WUCrsL cache older than 48 hours.'),
     );
 
-    $form['advanced']['soap_urls'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('SOAP Server Environments'),
-      '#description' => t('This is the server environment you will be using and all of the variables for each environment.'),
-      '#collapsible' => TRUE,
-      '#collapsed' => FALSE,
-    );
-
-    $form['advanced']['soap_urls']['wucrsl_soap_env'] = [
-      '#type' => 'select',
-      '#title' => $this
-        ->t('Soap URL/Environment to pull the data from.'),
-      '#options' => array(
-        'dev' => 'Development',
-        'prod' => 'Production',
-      ),
-      '#default_value' => $config->get('wucrsl_soap_env')
-        ? $config->get('wucrsl_soap_env')
-        : 'dev'
-    ];
-
-    $form['advanced']['soap_urls']['dev'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('Development Settings'),
-      '#description' => t('These are the settings that apply when development is selected'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-    );
-
-    $form['advanced']['soap_urls']['dev']['wucrsl_dev_soap_url'] = array(
+    $form['advanced']['soap_urls']['wucrsl_soap_url'] = array(
       '#type' => 'textfield',
       '#title' => t('SOAP Server URL'),
-      '#description' => t('The URL to the web service provider.'),
+      '#description' => t("The URL to the web service provider, this is set in the .env file and thus read only. If this value is missing be sure to add it to the .env with: COURSES_WUCRSL_URL='client_secret'"),
       '#size' => 60,
-      '#default_value' => $config->get('wucrsl_dev_soap_url') ?? 'https://istest.wustl.edu/sis_ws_courses/SISCourses.asmx',
+      '#default_value' => $_ENV['COURSES_WUCRSL_URL'] ?? 'https://istest.wustl.edu/sis_ws_courses/SISCourses.asmx',
       '#maxlength' => 255,
       '#required' => TRUE,
+      '#attributes' => [
+        'readonly' => 'readonly',
+      ],
     );
 
-    $form['advanced']['soap_urls']['dev']['wucrsl_dev_soap_client_id'] = array(
+    $form['advanced']['soap_urls']['wucrsl_soap_client_id'] = array(
       '#type' => 'textfield',
       '#title' => t('Client UUID'),
-      '#description' => t('The long identification string used to establish an identity with the remote server.'),
-      '#default_value' => $config->get('wucrsl_dev_soap_client_id') ?? 'D31733E5-9081-479B-B536-B1C88101B5A2',
+      '#description' => t("The long identification string used to establish an identity with the remote server, this is set in the .env file and thus read only. If this value is missing be sure to add it to the .env with: COURSES_WUCRSL_ID='client_id'"),
+      '#default_value' => $_ENV['COURSES_WUCRSL_ID'] ?? 'D31733E5-9081-479B-B536-B1C88101B5A2',
       '#size' => 60,
       '#maxlength' => 256,
       '#required' => FALSE,
+      '#attributes' => [
+        'readonly' => 'readonly',
+      ],
     );
 
-    $form['advanced']['soap_urls']['dev']['wucrsl_dev_soap_client_pw'] = array(
+    $form['advanced']['soap_urls']['wucrsl_soap_client_pw'] = array(
       '#type' => 'textfield',
       '#title' => t('Client Password'),
-      '#description' => t('Security token used to establish authenticity with the remote server.'),
-      '#default_value' => $config->get('wucrsl_dev_soap_client_pw') ?? 'password',
+      '#description' => t("Security token used to establish authenticity with the remote server, this is set in the .env file and thus read only. If this value is missing be sure to add it to the .env with: COURSES_WUCRSL_PW='client_id'"),
+      '#default_value' => $_ENV['COURSES_WUCRSL_PW'] ?? 'password',
       '#size' => 60,
       '#maxlength' => 256,
       '#required' => FALSE,
+      '#attributes' => [
+        'readonly' => 'readonly',
+      ],
     );
 
-    $form['advanced']['soap_urls']['prod'] = array(
-      '#type' => 'fieldset',
-      '#title' => t('Production Settings'),
-      '#description' => t('These are the settings that apply when production is selected'),
-      '#collapsible' => TRUE,
-      '#collapsed' => TRUE,
-    );
-
-    $form['advanced']['soap_urls']['prod']['wucrsl_prod_soap_url'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Production SOAP Server URL'),
-      '#description' => t('The URL to the production web service provider.'),
-      '#size' => 60,
-      '#default_value' => $config->get('wucrsl_prod_soap_url') ?? 'https://acadinfo.wustl.edu/sis_ws_courses/siscourses.asmx',
-      '#maxlength' => 255,
-      '#required' => TRUE,
-    );
-
-    $form['advanced']['soap_urls']['prod']['wucrsl_prod_soap_client_id'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Client UUID'),
-      '#description' => t('The long identification string used to establish an identity with the remote server.'),
-      '#default_value' => $config->get('wucrsl_prod_soap_client_id') ?? 'D31733E5-9081-479B-B536-B1C88101B5A2',
-      '#size' => 60,
-      '#maxlength' => 256,
-      '#required' => FALSE,
-    );
-
-    $form['advanced']['soap_urls']['prod']['wucrsl_prod_soap_client_pw'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Client Password'),
-      '#description' => t('Security token used to establish authenticity with the remote server.'),
-      '#default_value' => $config->get('wucrsl_prod_soap_client_pw') ?? 'password',
-      '#size' => 60,
-      '#maxlength' => 256,
-      '#required' => FALSE,
-    );
 
     return parent::buildForm($form, $form_state);
   }
@@ -213,14 +156,10 @@ class WashuasWucrslSettingsForm extends ConfigFormBase {
       ->set('wucrsl_cache_soap', $form_state->getValue('wucrsl_cache_soap'))
       ->set('wucrsl_soap_env', $form_state->getValue('wucrsl_soap_env'))
 
-      //switching things up so that you're able to keep both dev and prod settings saved
-      ->set('wucrsl_dev_soap_url', $form_state->getValue('wucrsl_dev_soap_url'))
-      ->set('wucrsl_dev_soap_client_id', $form_state->getValue('wucrsl_dev_soap_client_id'))
-      ->set('wucrsl_dev_soap_client_pw', $form_state->getValue('wucrsl_dev_soap_client_pw'))
+      ->set('wucrsl_soap_url', $form_state->getValue('wucrsl_soap_url'))
+      ->set('wucrsl_soap_client_id', $form_state->getValue('wucrsl_soap_client_id'))
+      ->set('wucrsl_soap_client_pw', $form_state->getValue('wucrsl_soap_client_pw'))
 
-      ->set('wucrsl_prod_soap_url', $form_state->getValue('wucrsl_prod_soap_url'))
-      ->set('wucrsl_prod_soap_client_id', $form_state->getValue('wucrsl_prod_soap_client_id'))
-      ->set('wucrsl_prod_soap_client_pw', $form_state->getValue('wucrsl_prod_soap_client_pw'))
       ->save();
 
     parent::submitForm($form, $form_state);

@@ -1,7 +1,7 @@
 <?php
 /**
  * @file
- * washuas_wucrsl.module
+ * washuas_courses.module
  * Drupal hooks and other helper functions for those hooks can go here
  */
 
@@ -11,27 +11,19 @@ use Drupal\Core\Form\FormState;
 /**
  * Implements hook_cron().
  */
-/*function washuas_wucrsl_cron() {
-  //get the batch that we will process
-  $batch = \Drupal::service('washuas_wucrsl.courses')->getCoursesBatch(null,[], true);
-  //get the queue that we will use to process it
-  $queue = \Drupal::service('queue')->get('courses_cron_import');
-  //add the batch to the queue where it'll be processed
-  $queue->createItem($batch);
-  //
+function washuas_courses_cron() {
+  $form_state = (new FormState())->setValues(['batch'=>true]);
+  \Drupal::formBuilder()->submitForm('Drupal\washuas_courses\Form\WashuasCoursesAPIForm', $form_state);
 }
-
-//removed this since we're not planning on using cron for wucrsl -kenneth
-*/
 
 /**
  * Implements hook_form_views_exposed_form_alter().
  */
 
-function washuas_wucrsl_form_views_exposed_form_alter(&$form, FormStateInterface $form_state) {
+function washuas_courses_form_views_exposed_form_alter(&$form, FormStateInterface $form_state) {
   if ( isset($form["semester"]) && ( $form['#id'] == "views-exposed-form-courses-block-1" ) ){
     //this will retrieve the semesters that we want to display
-    $courses = \Drupal::service('washuas_wucrsl.courses');
+    $courses = \Drupal::service('washuas_courses.courses');
     $semesters =  $courses->getSemesterTermsToDisplay();
 
     //if we don't have any semester taxonomy terms then we done here
@@ -53,7 +45,7 @@ function washuas_wucrsl_form_views_exposed_form_alter(&$form, FormStateInterface
  }
 }
 
-function washuas_wucrsl_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+function washuas_courses_form_alter(&$form, FormStateInterface $form_state, $form_id) {
   if ( $form_id == "node_courses_edit_form" ){
     $currentUser = \Drupal::currentUser();
     //if the user isn't an administrator then they are not able to edit the soap derived data
@@ -71,13 +63,13 @@ function washuas_wucrsl_form_alter(&$form, FormStateInterface $form_state, $form
     }
 
     //attach the submit function to update all other courses with this course id
-    $form['actions']['submit']['#submit'][] = 'washuas_wucrsl_update_related_courses';
+    $form['actions']['submit']['#submit'][] = 'washuas_courses_update_related_courses';
   }
 }
 /**
  * Implements hook_node_update().
  */
-function washuas_wucrsl_update_related_courses(&$form, FormStateInterface $form_state){
+function washuas_courses_update_related_courses(&$form, FormStateInterface $form_state){
   //if this is a course that is preserved there is nothing to do
   if ($form_state->getValue("field_course_do_not_delete")["value"] == 1 ) return;
 
@@ -95,12 +87,12 @@ function washuas_wucrsl_update_related_courses(&$form, FormStateInterface $form_
   ];
 
   //set this as a var, we use it twice
-  $entityTools = \Drupal::service('washuas_wucrsl.entitytools');
+  $entityTools = \Drupal::service('washuas_courses.entitytools');
   //get the node ids to be updated for this course
   $courseIDs = $entityTools->getNodeIDsByFields($fields);
 
   //these are the fields that carry over, we'll use this to loop through them
-  $fields = \Drupal::service('washuas_wucrsl.courses')->getCurriculumSharedFields();
+  $fields = \Drupal::service('washuas_courses.courses')->getCurriculumSharedFields();
 
   //initialize the array we'll return
   $fieldValues = [];
