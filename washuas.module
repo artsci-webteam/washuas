@@ -23,3 +23,16 @@ function washuas_rule_year_allowed_values(FieldStorageConfig $definition, Conten
   }
   return $options;
 }
+
+/**
+ * Implements hook_views_query_alter().
+ */
+function washuas_views_query_alter(\Drupal\views\ViewExecutable $view, \Drupal\views\Plugin\views\query\Sql $query) {
+    // Target the specific View and display.
+    $account = \Drupal::currentUser();
+    // Only show private nodes if user has a specific permission.
+    if (!$account->hasPermission('access private content')) {
+        // Add a condition to only show non-private content.
+        $query->addWhereExpression(0, 'node_field_data.private is null');
+    }
+}
