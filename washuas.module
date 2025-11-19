@@ -53,7 +53,8 @@ function washuas_views_query_alter(\Drupal\views\ViewExecutable $view, \Drupal\v
         if (!$account->hasPermission('access private content')) {
             foreach ($table_aliases as $table_alias){
                 // Add a condition to only show non-private content.
-                $query->addWhereExpression(0, "$table_alias.private is null");
+                // (check if private field is null or zero)
+                $query->addWhereExpression(0, "coalesce($table_alias.private, 0) = 0");
             }
         }
     }
