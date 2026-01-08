@@ -27,7 +27,7 @@ function washuas_rule_year_allowed_values(FieldStorageConfig $definition, Conten
 /**
  * Implements hook_views_query_alter().
  */
-function washuas_views_query_alter(\Drupal\views\ViewExecutable $view, \Drupal\views\Plugin\views\query\Sql $query) {
+function washuas_views_query_alter(\Drupal\views\ViewExecutable $view, \Drupal\views\Plugin\views\query\QueryPluginBase $query) {
 
     // Skip altering preview queries in the Views UI.
     if (\Drupal::routeMatch()->getRouteName() === 'views_ui.preview') {
