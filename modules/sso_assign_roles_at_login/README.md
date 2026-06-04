@@ -4,8 +4,8 @@ The SSO Assign Roles at Login module allows the web team to manage user roles
 for A&S staff. The roles are automatically
 assigned when these users authenticate via SSO.
 
-To view the module repo, visit:
-[SSO Git Repo](https://github.com/artsci-webteam/sso).
+This module ships as a submodule of the [WashU A&S (washuas)](https://github.com/artsci-webteam/washuas)
+package.
 
 ## Requirements
 
@@ -28,7 +28,7 @@ information, see
 
 ### Adding new email addresses to automatically assign roles at login
 
-1. Open the web/modules/custom/sso/modules/sso_assign_roles_at_login/config/install/sso_assign_roles_at_login.settings.yml file
+1. Open the web/modules/custom/washuas/modules/sso_assign_roles_at_login/config/install/sso_assign_roles_at_login.settings.yml file
 2. List the email addresses that should be assigned a given role
    1. For example, the following configuration will assign the
       "administrator" role to the list of email addresses in both the artsci
@@ -64,7 +64,7 @@ information, see
      - g.porter@wustl.edu
    ```
 
-3. Run a partial config import to import the changes: `drush cim --partial --source=modules/custom/sso/modules/sso_assign_roles_at_login/config/install/`
+3. Run a partial config import to import the changes: `drush cim --partial --source=modules/custom/washuas/modules/sso_assign_roles_at_login/config/install/`
 
 ### Removing roles from users who were once added to the configuration
 
