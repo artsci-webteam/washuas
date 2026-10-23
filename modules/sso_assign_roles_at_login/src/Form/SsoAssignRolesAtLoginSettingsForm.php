@@ -3,6 +3,7 @@
 namespace Drupal\sso_assign_roles_at_login\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Config\TypedConfigManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\washuas\Services\EntityTools;
@@ -21,18 +22,29 @@ class SsoAssignRolesAtLoginSettingsForm extends ConfigFormBase {
   const SETTINGS = 'sso_assign_roles_at_login.settings';
 
   /**
-   * Drupal\washuas\Services\EntityTools definition.
+   * The washuas entity tools service.
    *
-   * @var EntityTools $entity_tools ;
+   * @var \Drupal\washuas\Services\EntityTools
    */
-  protected $entity_tools;
+  protected $entityTools;
 
   /**
-   * Class constructor.
+   * {@inheritdoc}
    */
-  public function __construct(ConfigFactoryInterface $config_factory) {
-    parent::__construct($config_factory);
-    $this->entityTools = \Drupal::service('sso_assign_roles_at_login.entitytools');
+  public function __construct(ConfigFactoryInterface $config_factory, TypedConfigManagerInterface $typedConfigManager, EntityTools $entity_tools) {
+    parent::__construct($config_factory, $typedConfigManager);
+    $this->entityTools = $entity_tools;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('config.factory'),
+      $container->get('config.typed'),
+      $container->get('sso_assign_roles_at_login.entitytools')
+    );
   }
 
   /**

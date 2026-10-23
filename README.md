@@ -51,6 +51,13 @@ Drupal install uses the same SimpleSAMLphp configuration.
 > when the consuming project wires those scripts up. Composer does not run a
 > dependency's scripts on its own.
 
+## Compatibility
+
+| washuas | Drupal core | PHP | Notes |
+|---------|-------------|-----|-------|
+| **2.x** | 10.3 and later, 11.x | 8.1+ | Drupal 11-ready. Settings forms inject the typed config manager, the CKEditor 4 plugin remnants are gone, and the private-content views filter is skipped when the `private_content` module is not installed. |
+| 1.2.x | 9.4 and 10.x | 8.1+ | Legacy line. No further releases are planned; Drupal 10 sites can move to 2.x as-is. |
+
 ## Installation
 
 To add `washuas` to a project for the first time:
@@ -104,13 +111,14 @@ tag, so a change isn't "live" anywhere until you cut a new release.
    [artsci-webteam/washuas](https://github.com/artsci-webteam/washuas).
 2. Once the PR is reviewed and merged into `main`, tag a new release. Follow
    [semantic versioning](https://semver.org/) — bump the patch for fixes, the
-   minor for new functionality:
+   minor for new functionality, and the major when the supported Drupal core
+   range changes:
 
    ```bash
    git checkout main
    git pull
-   git tag v1.2.10
-   git push origin v1.2.10
+   git tag v2.0.1
+   git push origin v2.0.1
    ```
 
 3. Create a matching [GitHub release](https://github.com/artsci-webteam/washuas/releases)

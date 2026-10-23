@@ -42,6 +42,13 @@ function washuas_views_query_alter(\Drupal\views\ViewExecutable $view, \Drupal\v
         return;
     }
 
+    // The filter relies on the 'private' base field that the private_content
+    // module adds to nodes. Without that module there is no column to filter
+    // on and the expression below would be a SQL error.
+    if (!\Drupal::moduleHandler()->moduleExists('private_content')) {
+        return;
+    }
+
     // Determine if this query involves node data, whether as base or via relationship.
     $table_aliases = [];
     foreach ($query->relationships as $alias => $info) {

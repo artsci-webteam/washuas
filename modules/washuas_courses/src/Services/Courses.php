@@ -304,6 +304,8 @@ class Courses {
       'field_course_semester' => $curriculum['semester'],
     ];
 
+    //the semester taxonomy term id was resolved when the sections were processed
+    $semesterTerm = $curriculum['semester'] ?? NULL;
     //retrieve the existing nodes, but only if we have an existing taxonomy term as it's a filter
     $courseIDs = (empty($semesterTerm))? false : $entityTools->getNodeIDsByFields($fields);
 
@@ -1017,7 +1019,7 @@ class Courses {
       //take an action depending on what the function is
       switch($function){
         case 'sections':
-          $sections = $this->processSections($dataArray);
+          $this->processSections($dataArray);
           break;
         case 'courses':
           $test = 2;

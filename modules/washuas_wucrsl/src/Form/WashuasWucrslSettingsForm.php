@@ -3,15 +3,11 @@
 namespace Drupal\washuas_wucrsl\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Config\Schema\ArrayElement;
+use Drupal\Core\Config\TypedConfigManagerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Logger\LoggerChannelFactoryInterface;
 use Drupal\Core\Messenger\MessengerInterface;
-use Drupal\washuas\Services\EntityTools;
-use Drupal\washuas_wucrsl\Services\Soap;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\Dotenv\Dotenv;
 
 /**
  * Configure settings for this WashU A&S WUCrsl module.
@@ -25,27 +21,20 @@ class WashuasWucrslSettingsForm extends ConfigFormBase {
   const SETTINGS = 'washuas_wucrsl.settings';
 
   /**
-   *
-   * @var \Drupal\Core\Logger\LoggerChannelFactoryInterface
+   * {@inheritdoc}
    */
-
-  protected $loggerFactory;
-
-  /**
-   * The Messenger service.
-   *
-   * @var \Drupal\Core\Messenger\MessengerInterface
-   */
-  protected $messenger;
-
-  public function __construct(ConfigFactoryInterface $config_factory,MessengerInterface $messenger) {
-    parent::__construct($config_factory);
-    $this->messenger = $messenger;
+  public function __construct(ConfigFactoryInterface $config_factory, TypedConfigManagerInterface $typedConfigManager, MessengerInterface $messenger) {
+    parent::__construct($config_factory, $typedConfigManager);
+    $this->setMessenger($messenger);
   }
 
+  /**
+   * {@inheritdoc}
+   */
   public static function create(ContainerInterface $container) {
     return new static(
       $container->get('config.factory'),
+      $container->get('config.typed'),
       $container->get('messenger')
     );
   }
@@ -138,7 +127,6 @@ class WashuasWucrslSettingsForm extends ConfigFormBase {
         'readonly' => 'readonly',
       ],
     );
-
 
     return parent::buildForm($form, $form_state);
   }

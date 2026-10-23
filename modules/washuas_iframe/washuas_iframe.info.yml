@@ -1,7 +1,7 @@
 name: 'WashU A&S iFrame'
 type: module
 description: 'Adds WashU tweaked CKEditor iframe functionality'
-core_version_requirement: ^10
+core_version_requirement: ^10.3 || ^11
 weight: 100
 package: WashU
 dependencies:

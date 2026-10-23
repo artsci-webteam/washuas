@@ -19,6 +19,13 @@ class WashuasCoursesImportForm extends FormBase {
    */
   const SETTINGS = 'washuas_courses.settings';
 
+  /**
+   * The courses service.
+   *
+   * @var \Drupal\washuas_courses\Services\Courses
+   */
+  protected $courses;
+
   public function __construct() {
     $this->courses = \Drupal::service('washuas_courses.courses');
   }

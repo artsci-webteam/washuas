@@ -91,7 +91,7 @@ class EntityTools {
    * @return string
    *   The name without the prefix.
    */
-  public function removeFieldPrefix(string $str, string $prefix = NULL) {
+  public function removeFieldPrefix(string $str, ?string $prefix = NULL) {
     $prefix = $prefix ?: $this->getFieldPrefix();
     return strpos($str, $prefix) === 0 ? substr($str, strlen($prefix)) : $str;
   }
