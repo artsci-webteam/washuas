@@ -2,4 +2,4 @@ name: WashU A&S
 type: module
 description: 'Helper WashU A&S Drupal functions and submodules.'
 package: WashU
-core_version_requirement: ^9.4 || ^10
+core_version_requirement: ^10.3 || ^11

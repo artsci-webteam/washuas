@@ -2,7 +2,7 @@ name: WashU A&S Courses
 type: module
 description: 'Module for retrieving course information from the Courses web service '
 package: WashU
-core_version_requirement: ^9.4 || ^10
+core_version_requirement: ^10.3 || ^11
 dependencies:
   - washuas
   - drupal:node
